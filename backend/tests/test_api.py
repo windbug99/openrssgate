@@ -49,6 +49,58 @@ def test_ops_sources_endpoint_lists_non_active_sources() -> None:
     assert payload["items"][0]["status_reason"] == "missing_description"
 
 
+def test_ops_source_status_update_requires_key() -> None:
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://example.com/moderate.xml",
+            site_url="https://example.com",
+            title="Moderate Source",
+            description="desc",
+            status="hidden",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+        source_id = source.id
+
+    response = client.post(
+        f"/v1/ops/sources/{source_id}/status",
+        json={"status": "active", "reason": "manual_restore"},
+    )
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "ops_key_not_configured"
+
+
+def test_ops_source_status_update_succeeds_with_key(monkeypatch) -> None:
+    from app.api import ops as ops_module
+
+    monkeypatch.setattr(ops_module, "get_settings", lambda: type("Settings", (), {"ops_api_key": "secret"})())
+
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://example.com/moderate-2.xml",
+            site_url="https://example.com",
+            title="Moderate Source 2",
+            description="desc",
+            status="hidden",
+            status_reason="missing_description",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+        source_id = source.id
+
+    response = client.post(
+        f"/v1/ops/sources/{source_id}/status",
+        json={"status": "active", "reason": "manual_restore"},
+        headers={"X-Ops-Key": "secret"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "active"
+    assert payload["status_reason"] == "manual_restore"
+
+
 def test_mcp_tools_endpoint() -> None:
     response = client.get("/mcp/tools")
     assert response.status_code == 200

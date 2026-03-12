@@ -98,6 +98,13 @@ curl "http://127.0.0.1:8000/v1/ops/sources?status=hidden"
 
 This lists sources across moderation states, including `pending_review`, `hidden`, and `rejected`.
 
+```bash
+curl -X POST "http://127.0.0.1:8000/v1/ops/sources/<source_id>/status" \
+  -H "Content-Type: application/json" \
+  -H "X-Ops-Key: change-this-ops-key" \
+  -d '{"status":"active","reason":"manual_restore"}'
+```
+
 ## Test
 
 ```bash

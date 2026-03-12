@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     source_registration_max_attempts: int = 10
     source_registration_max_same_host: int = 3
     collector_stale_after_minutes: int = 180
+    ops_api_key: str | None = None
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
     model_config = SettingsConfigDict(

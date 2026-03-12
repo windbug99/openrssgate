@@ -11,6 +11,19 @@ const initialState = {
   tags: "",
 };
 
+function getStatusMessage(source: Source): string {
+  if (source.status === "active") {
+    return `${source.title} has been registered and is now available through the public index.`;
+  }
+  if (source.status === "hidden") {
+    return `${source.title} has been registered, but it is hidden pending operations review.`;
+  }
+  if (source.status === "rejected") {
+    return `${source.title} was received, but it was not approved for public listing.`;
+  }
+  return `${source.title} has been registered and is awaiting review.`;
+}
+
 export function SourceRegisterForm() {
   const [form, setForm] = useState(initialState);
   const [saving, setSaving] = useState(false);
@@ -84,7 +97,7 @@ export function SourceRegisterForm() {
       </form>
       {createdSource ? (
         <div className="status ok">
-          <strong>{createdSource.title}</strong> has been registered and is now available through the public index.
+          <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
       {error ? <div className="status error">{error}</div> : null}
