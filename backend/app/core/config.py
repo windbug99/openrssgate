@@ -1,7 +1,9 @@
+import json
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -12,7 +14,7 @@ class Settings(BaseSettings):
     max_redirects: int = 5
     user_agent: str = "rss-gateway-bot/0.1 (+https://rssgateway.io)"
     collector_poll_interval_seconds: int = 300
-    cors_allowed_origins: list[str] = ["http://127.0.0.1:3000", "http://localhost:3000"]
+    cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -24,7 +26,14 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors_allowed_origins(cls, value: object) -> object:
         if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+            stripped = value.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                loaded = json.loads(stripped)
+                if isinstance(loaded, list):
+                    return [str(origin).strip() for origin in loaded if str(origin).strip()]
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
         return value
 
 

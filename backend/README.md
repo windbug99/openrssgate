@@ -51,6 +51,12 @@ COLLECTOR_POLL_INTERVAL_SECONDS=300
 CORS_ALLOWED_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
 ```
 
+Railway environment variables can use a JSON array instead:
+
+```bash
+CORS_ALLOWED_ORIGINS=["https://your-frontend-domain.vercel.app"]
+```
+
 ## Migrations
 
 ```bash

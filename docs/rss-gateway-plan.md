@@ -797,14 +797,14 @@ sources 테이블 추가 컬럼 (Phase 2)
 ```
 목표: 기본 동작하는 게이트웨이
 
-[ ] DB 스키마 설계 및 생성 (NeonDB)
+[x] DB 스키마 설계 및 생성 (NeonDB)
 [x] Source 등록/조회 REST API 구현 (/sources, /feeds)
 [x] Source Index 수집기 구현 (APScheduler)
 [x] 조회 전용 MCP 서버 구현 (FastMCP)
 [x] 웹 프론트 MVP (홈 + Source 등록 + Source 탐색)
 [x] CLI 도구 기본 명령어 구현 (list / feeds)
 [x] Claude Desktop으로 MCP 연결 검증
-[ ] Railway + Vercel 배포
+[x] Railway + Vercel 배포
 ```
 
 ### Phase 2: 안정화 (2~3개월)
@@ -819,7 +819,7 @@ sources 테이블 추가 컬럼 (Phase 2)
 [ ] Source 등록 `pending_review` 상태 및 운영 상태 전이 정비
 [ ] 1차 규칙 기반 자동 검증 도입
 [ ] 모니터링 및 알림 설정
-[ ] API 문서 정비 (Swagger)
+[x] API 문서 정비 (Swagger)
 [ ] CLI PyPI 정식 배포 (pip install rssgate)
 ```
 
@@ -835,6 +835,66 @@ sources 테이블 추가 컬럼 (Phase 2)
 [ ] 2차 AI 보조 검토 파이프라인 구축
 [ ] AI Agent 어뷰징 판단 파이프라인 구축
 [ ] Source 신뢰도 점수 시스템
+```
+
+### 7.1 현재 진행 상태 (2026-03-12)
+
+```
+완료
+- Alembic 기반 스키마 및 마이그레이션 구조 준비
+- NeonDB 대상 `alembic upgrade head` 적용 완료
+- Railway API / collector worker 배포
+- Vercel 프론트 배포
+- 공개 도메인 연결 및 기본 환경변수 설정
+- Claude Desktop local MCP 검증
+
+확인 필요
+- Railway API/worker 장기 안정성 모니터링
+- Vercel Preview/이전 배포 이력 정리
+```
+
+### 7.2 다음 작업 단계
+
+```
+우선순위 1: 운영 안정화
+1. Railway API/worker 헬스체크 및 실패 로그 모니터링 정리
+2. CORS, 배포 환경변수, 수집 주기 운영값 재점검
+3. 기본 운영 문서(장애 대응, 재배포 절차) 간단 정리
+
+우선순위 2: 서비스 보호
+4. 웹 Source 등록 Rate Limiting 적용
+5. 익명 등록 검증 1차 규칙 기반 파이프라인 도입
+6. Source 상태 전이(active / pending_review / hidden / rejected) 정비
+
+우선순위 3: 배포 완성도
+7. CLI PyPI 배포
+8. Vercel / Railway 모니터링 및 알림 설정
+9. Preview/old deployment 정리 및 보안 배너 잔여 이력 정리
+```
+
+### 7.3 바로 진행할 작업 순서
+
+```
+Step 1. Railway 운영값 정리
+- API / worker 환경변수 최종 점검
+- Neon 비밀번호 재발급 후 DATABASE_URL 교체
+- 수집 주기 운영값 확정
+
+Step 2. 공개 등록 보호
+- POST /sources 에 IP 기준 Rate Limiting 적용
+- URL 형식 / 내부망 주소 / 중복 등록 차단 강화
+
+Step 3. 등록 상태 체계 정리
+- Source 상태를 active / pending_review / hidden / rejected 로 확장
+- MVP 기본값과 운영 개입 규칙 명시
+
+Step 4. 1차 자동 검증 도입
+- fetch 가능 여부, parse 성공 여부, 중복 여부, 단순 스팸 패턴 검사
+- 통과 시 active, 실패 시 rejected 또는 hidden
+
+Step 5. 운영 관측성 추가
+- Railway 로그 점검 기준 정리
+- 장애 알림 및 기본 모니터링 연결
 ```
 
 ---
