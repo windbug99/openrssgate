@@ -7,18 +7,18 @@ export default async function FeedsPage() {
 
   return (
     <SiteShell>
-      <section className="section">
+      <section>
         <div className="page-head">
           <div>
-            <h1 className="page-title">Feeds</h1>
-            <p className="muted">Recently collected feed metadata from active sources.</p>
+            <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Feeds</h1>
+            <p className="mt-3 text-lg text-default-500">Recently collected feed metadata from active sources.</p>
           </div>
         </div>
         {feeds.items.length ? (
           <FeedList feeds={feeds.items} />
         ) : (
-          <div className="hero-card empty-state">
-            <p className="muted">No feeds are available in the current window.</p>
+          <div className="rounded-large border border-default-200 bg-content1 p-6 text-default-500 shadow-sm">
+            No feeds are available in the current window.
           </div>
         )}
       </section>

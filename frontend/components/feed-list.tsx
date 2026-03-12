@@ -16,15 +16,17 @@ export function FeedList({ feeds }: { feeds: Feed[] }) {
   return (
     <div className="feed-list">
       {feeds.map((feed) => (
-        <Card className="feed-item hero-card" key={feed.id}>
-          <Card.Content>
-          <h3>{feed.title}</h3>
-          <p>{formatDate(feed.published_at)}</p>
-          <p>
-            <a href={feed.feed_url} target="_blank" rel="noreferrer">
-              {feed.feed_url}
-            </a>
-          </p>
+        <Card key={feed.id}>
+          <Card.Content className="gap-3 p-6">
+            <h3 className="text-xl font-semibold tracking-tight">{feed.title}</h3>
+            <div className="feed-meta text-sm text-default-500">
+              <p>{formatDate(feed.published_at)}</p>
+              <p>
+                <a href={feed.feed_url} target="_blank" rel="noreferrer">
+                  {feed.feed_url}
+                </a>
+              </p>
+            </div>
           </Card.Content>
         </Card>
       ))}

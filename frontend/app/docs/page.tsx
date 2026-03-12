@@ -17,65 +17,65 @@ const tools = ["search_sources", "get_source", "get_recent_feeds", "get_source_f
 export default function DocsPage() {
   return (
     <SiteShell>
-      <section className="section">
-        <Card className="hero-card panel">
-          <h1 className="page-title">Docs</h1>
-          <p className="muted">
-            Connection details for REST API, remote MCP access, and the public CLI workflow.
-          </p>
+      <section className="docs-grid">
+        <Card>
+          <Card.Content className="gap-3 p-8">
+            <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Docs</h1>
+            <p className="text-lg text-default-500">
+              Connection details for REST API, remote MCP access, and the public CLI workflow.
+            </p>
+          </Card.Content>
         </Card>
-      </section>
 
-      <section className="section">
-        <Card className="hero-card panel">
-          <h2>REST API</h2>
-          <div className="list-stack">
+        <Card>
+          <Card.Content className="gap-5 p-8">
+            <h2 className="text-2xl font-semibold tracking-tight">REST API</h2>
+            <div className="list-stack">
             {endpoints.map(([method, path, description]) => (
-              <div className="list-row" key={path}>
-                <div className="list-row-main">
+                <Card key={path}>
+                  <Card.Content className="gap-1 p-4">
                   <strong>
                     {method} {path}
                   </strong>
-                  <p className="muted">{description}</p>
-                </div>
-              </div>
+                    <p className="text-default-500">{description}</p>
+                  </Card.Content>
+                </Card>
             ))}
-          </div>
+            </div>
+          </Card.Content>
         </Card>
-      </section>
 
-      <section className="section">
-        <Card className="hero-card panel">
-          <h2>MCP</h2>
-          <p className="muted">Remote MCP endpoint for deployed environments.</p>
-          <div className="docs-block">
-            <code>https://openrssgate-production.up.railway.app/mcp/sse</code>
-          </div>
-          <div className="pill-row">
+        <Card>
+          <Card.Content className="gap-5 p-8">
+            <h2 className="text-2xl font-semibold tracking-tight">MCP</h2>
+            <p className="text-default-500">Remote MCP endpoint for deployed environments.</p>
+            <Card>
+              <Card.Content className="p-4 font-mono text-sm">
+                https://openrssgate-production.up.railway.app/mcp/sse
+              </Card.Content>
+            </Card>
+            <div className="chip-row">
             {tools.map((tool) => (
-              <Chip className="heroui-chip" key={tool}>
+                <Chip key={tool} variant="soft">
                 {tool}
-              </Chip>
+                </Chip>
             ))}
-          </div>
+            </div>
+          </Card.Content>
         </Card>
-      </section>
 
-      <section className="section">
-        <Card className="hero-card panel">
-          <h2>CLI</h2>
-          <p className="muted">
-            Set the API base URL, then use the read-only `openrssgate` CLI.
-          </p>
-          <div className="docs-block">
-            <code>export RSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1</code>
-          </div>
-          <div className="docs-block">
-            <code>openrssgate list</code>
-          </div>
-          <div className="docs-block">
-            <code>openrssgate feeds --since 7d</code>
-          </div>
+        <Card>
+          <Card.Content className="gap-5 p-8">
+            <h2 className="text-2xl font-semibold tracking-tight">CLI</h2>
+            <p className="text-default-500">Set the API base URL, then use the read-only `openrssgate` CLI.</p>
+            <Card>
+              <Card.Content className="gap-3 p-4 font-mono text-sm">
+                <code>export RSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1</code>
+                <code>openrssgate list</code>
+                <code>openrssgate feeds --since 7d</code>
+              </Card.Content>
+            </Card>
+          </Card.Content>
         </Card>
       </section>
     </SiteShell>

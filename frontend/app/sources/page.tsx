@@ -8,11 +8,11 @@ export default async function SourcesPage() {
 
   return (
     <SiteShell>
-      <section className="section">
+      <section>
         <div className="page-head">
           <div>
-            <h1 className="page-title">Sources</h1>
-            <p className="muted">Stored RSS sources that passed public indexing rules.</p>
+            <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Sources</h1>
+            <p className="mt-3 text-lg text-default-500">Stored RSS sources that passed public indexing rules.</p>
           </div>
           <SourceRegisterDialog />
         </div>
@@ -21,8 +21,8 @@ export default async function SourcesPage() {
             <SourceCard key={source.id} source={source} />
           ))}
           {sources.items.length === 0 ? (
-            <div className="hero-card empty-state">
-              <p className="muted">No sources have been indexed yet.</p>
+            <div className="rounded-large border border-default-200 bg-content1 p-6 text-default-500 shadow-sm">
+              No sources have been indexed yet.
             </div>
           ) : null}
         </div>

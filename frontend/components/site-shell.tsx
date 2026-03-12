@@ -12,24 +12,24 @@ export function SiteShell({ children }: { children: ReactNode }) {
           <Link href="/" className="brand">
             OpenRSSGate
           </Link>
-          <nav className="nav heroui-nav">
+          <nav className="nav">
             <Link href="/">
-              <Button variant="ghost" size="sm">
+              <Button variant="tertiary" size="sm">
                 Home
               </Button>
             </Link>
             <Link href="/sources">
-              <Button variant="ghost" size="sm">
+              <Button variant="tertiary" size="sm">
                 Sources
               </Button>
             </Link>
             <Link href="/feeds">
-              <Button variant="ghost" size="sm">
+              <Button variant="tertiary" size="sm">
                 Feeds
               </Button>
             </Link>
             <Link href="/docs">
-              <Button variant="ghost" size="sm">
+              <Button variant="tertiary" size="sm">
                 Docs
               </Button>
             </Link>

@@ -58,16 +58,16 @@ function SourceRegisterFormInner() {
 
   return (
     <>
-      <div className="form-intro">
-        <h2>Anonymous Source Registration</h2>
-        <p className="muted">
+      <div className="space-y-2">
+        <h2 className="text-2xl font-semibold tracking-tight">Anonymous Source Registration</h2>
+        <p className="text-default-500">
           RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
         </p>
       </div>
       <form onSubmit={handleSubmit}>
-        <div className="heroui-form-grid">
+        <div className="form-grid">
           <Input
-            className="heroui-field-wide"
+            className="form-grid-full"
             aria-label="RSS URL"
             placeholder="https://blog.example.com/rss.xml"
             value={form.rss_url}
@@ -87,7 +87,7 @@ function SourceRegisterFormInner() {
             onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
           />
           <Input
-            className="heroui-field-wide"
+            className="form-grid-full"
             aria-label="Tags"
             placeholder="AI, tech, semiconductor"
             value={form.tags}
@@ -101,11 +101,11 @@ function SourceRegisterFormInner() {
         </div>
       </form>
       {createdSource ? (
-        <div className="status ok">
+        <div className="rounded-large bg-success-50 px-4 py-3 text-sm text-success-700">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
-      {error ? <div className="status error">{error}</div> : null}
+      {error ? <div className="rounded-large bg-danger-50 px-4 py-3 text-sm text-danger-700">{error}</div> : null}
     </>
   );
 }
@@ -116,8 +116,8 @@ export function SourceRegisterForm({ embedded = false }: { embedded?: boolean })
   }
 
   return (
-    <Card className="hero-card panel">
-      <Card.Content className="px-7 py-7">
+    <Card>
+      <Card.Content className="gap-5 p-8">
         <SourceRegisterFormInner />
       </Card.Content>
     </Card>
