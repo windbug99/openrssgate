@@ -1,0 +1,21 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node / Next.js
+node_modules/
+.next/
+
+# Local env files
+.env
+.env.production
+
+# Local databases and artifacts
+*.db
+*.db-journal
+*.failed_alembic
+*.pre_alembic
