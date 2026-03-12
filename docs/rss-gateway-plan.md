@@ -211,6 +211,26 @@ pending_review
 └── rejected  : 잘못된 제목, 엔트리 없음 등 등록 거절이 명확한 상태
 ```
 
+현재 구현된 자동 검증 규칙은 다음과 같습니다.
+
+```
+rejected
+├── generic_or_invalid_title
+├── no_feed_entries
+├── duplicate_site_url
+└── spam_like_title
+
+hidden
+├── too_few_entries
+├── repetitive_entry_titles
+├── missing_published_dates
+├── stale_feed
+└── missing_description
+
+active
+└── auto_approved
+```
+
 
 
 ```
@@ -826,6 +846,7 @@ sources 테이블 추가 컬럼 (Phase 2)
 [ ] API 응답 Redis 캐싱
 [x] Source 등록 `pending_review` 상태 및 운영 상태 전이 정비
 [x] 1차 규칙 기반 자동 검증 도입
+[x] 운영용 상태 변경 API 구현
 [ ] 모니터링 및 알림 설정
 [x] API 문서 정비 (Swagger)
 [ ] CLI PyPI 정식 배포 (pip install rssgate)
@@ -845,7 +866,7 @@ sources 테이블 추가 컬럼 (Phase 2)
 [ ] Source 신뢰도 점수 시스템
 ```
 
-### 7.1 현재 진행 상태 (2026-03-12)
+### 7.1 현재 진행 상태 (2026-03-13)
 
 ```
 완료
@@ -857,7 +878,9 @@ sources 테이블 추가 컬럼 (Phase 2)
 - Claude Desktop local MCP 검증
 - 웹 익명 등록 Rate Limiting 적용
 - Source 자동 검증 및 상태 전이(`pending_review / active / hidden / rejected`) 구현
+- 자동 검증 규칙 고도화(`duplicate_site_url`, `repetitive_entry_titles`, `stale_feed` 등)
 - 운영용 상태 요약 및 상태별 Source 조회 API 추가
+- 운영용 Source 상태 변경 API 추가 (`/v1/ops/sources/{id}/status`)
 
 확인 필요
 - Railway API/worker 장기 안정성 모니터링
@@ -875,7 +898,7 @@ sources 테이블 추가 컬럼 (Phase 2)
 우선순위 2: 서비스 보호
 4. hidden / rejected 상태 운영 기준 구체화
 5. 운영자용 검토/복구 인터페이스 추가
-6. 자동 검증 규칙 고도화
+6. 자동 검증 규칙 추가 고도화 및 점수화
 
 우선순위 3: 배포 완성도
 7. CLI PyPI 배포
@@ -893,10 +916,10 @@ Step 1. Railway 운영값 정리
 
 Step 2. 운영 검토 체계 보강
 - hidden / rejected 상태별 운영 기준과 복구 규칙 정리
-- 운영자용 검토 액션(active 복구 / hidden 전환 / rejected 확정) 추가
+- 운영자용 검토 인터페이스(`/admin` 또는 `admin.` 서브도메인) 추가
 
 Step 3. 자동 검증 규칙 고도화
-- 피드 설명 누락, 엔트리 부족 외에 중복/스팸/저품질 패턴 추가
+- 현재 규칙 위에 도메인 평판, 제목 품질 점수, 발행 빈도 점수 추가
 - 필요 시 AI 보조 검토로 넘기는 기준 정의
 
 Step 4. 운영 가시성 추가

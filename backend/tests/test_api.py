@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from datetime import UTC, datetime, timedelta
 
 from app.db.database import Base, SessionLocal, engine
 from app.db.models import Feed, Source
@@ -31,8 +32,8 @@ def test_ops_summary_endpoint() -> None:
 def test_ops_sources_endpoint_lists_non_active_sources() -> None:
     with SessionLocal() as db:
         source = Source(
-            rss_url="https://example.com/review.xml",
-            site_url="https://example.com",
+            rss_url="https://ops-hidden.example.com/review.xml",
+            site_url="https://ops-hidden.example.com",
             title="Review Source",
             description="desc",
             status="hidden",
@@ -180,6 +181,10 @@ def test_create_source_is_rate_limited(monkeypatch) -> None:
 def test_create_source_can_be_hidden_after_review(monkeypatch) -> None:
     from app.api import sources as sources_module
 
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
     async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
         return {
             "metadata": {
@@ -206,6 +211,7 @@ def test_create_source_can_be_hidden_after_review(monkeypatch) -> None:
             ],
         }
 
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
     monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
 
     response = client.post(
@@ -216,11 +222,15 @@ def test_create_source_can_be_hidden_after_review(monkeypatch) -> None:
     assert response.status_code == 201
     payload = response.json()
     assert payload["status"] == "hidden"
-    assert payload["status_reason"] == "missing_description"
+    assert payload["status_reason"] == "missing_published_dates"
 
 
 def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
     from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
 
     async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
         return {
@@ -235,6 +245,7 @@ def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
             "entries": [],
         }
 
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
     monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
 
     response = client.post(
@@ -246,3 +257,160 @@ def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
     payload = response.json()
     assert payload["status"] == "rejected"
     assert payload["status_reason"] == "generic_or_invalid_title"
+
+
+def test_create_source_can_be_rejected_for_duplicate_site_url(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    with SessionLocal() as db:
+        existing = Source(
+            rss_url="https://example.com/original.xml",
+            site_url="https://example.com",
+            title="Existing Source",
+            description="desc",
+            status="active",
+            registered_by="web",
+        )
+        db.add(existing)
+        db.commit()
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/duplicate.xml",
+                "site_url": "https://example.com",
+                "title": "Duplicate Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Entry 1", "feed_url": "https://example.com/1", "published_at": datetime.now(UTC)},
+                {"guid": "2", "title": "Entry 2", "feed_url": "https://example.com/2", "published_at": datetime.now(UTC)},
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/duplicate.xml", "tags": []})
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "rejected"
+    assert payload["status_reason"] == "duplicate_site_url"
+
+
+def test_create_source_can_be_hidden_for_repetitive_titles(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    now = datetime.now(UTC)
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/repetitive.xml",
+                "site_url": "https://repetitive.example.com",
+                "title": "Repetitive Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Same Title", "feed_url": "https://example.com/1", "published_at": now},
+                {"guid": "2", "title": "Same Title", "feed_url": "https://example.com/2", "published_at": now},
+                {"guid": "3", "title": "Same Title", "feed_url": "https://example.com/3", "published_at": now},
+                {"guid": "4", "title": "Same Title", "feed_url": "https://example.com/4", "published_at": now},
+                {"guid": "5", "title": "Another", "feed_url": "https://example.com/5", "published_at": now},
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/repetitive.xml", "tags": []})
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "repetitive_entry_titles"
+
+
+def test_create_source_can_be_hidden_for_missing_published_dates(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/no-dates.xml",
+                "site_url": "https://nodates.example.com",
+                "title": "No Dates Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Entry 1", "feed_url": "https://example.com/1", "published_at": None},
+                {"guid": "2", "title": "Entry 2", "feed_url": "https://example.com/2", "published_at": None},
+                {"guid": "3", "title": "Entry 3", "feed_url": "https://example.com/3", "published_at": None},
+                {"guid": "4", "title": "Entry 4", "feed_url": "https://example.com/4", "published_at": datetime.now(UTC)},
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/no-dates.xml", "tags": []})
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "missing_published_dates"
+
+
+def test_create_source_can_be_hidden_for_stale_feed(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    stale_time = datetime.now(UTC) - timedelta(days=60)
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/stale.xml",
+                "site_url": "https://stale.example.com",
+                "title": "Stale Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Entry 1", "feed_url": "https://example.com/1", "published_at": stale_time},
+                {"guid": "2", "title": "Entry 2", "feed_url": "https://example.com/2", "published_at": stale_time},
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/stale.xml", "tags": []})
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "stale_feed"

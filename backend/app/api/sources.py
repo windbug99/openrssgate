@@ -154,6 +154,12 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
         ) from exc
 
     metadata = bundle["metadata"]
+    site_url = str(metadata.get("site_url") or "").strip()
+    duplicate_site_url_exists = False
+    if site_url:
+        duplicate_site_url_exists = (
+            db.scalar(select(func.count()).select_from(Source).where(Source.site_url == site_url)) or 0
+        ) > 0
 
     source = Source(
         rss_url=metadata["rss_url"],
@@ -179,7 +185,11 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
             detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
         ) from exc
 
-    decision = review_source_bundle(metadata=metadata, entries=bundle["entries"])
+    decision = review_source_bundle(
+        metadata=metadata,
+        entries=bundle["entries"],
+        duplicate_site_url_exists=duplicate_site_url_exists,
+    )
     source.status = decision.status
     source.status_reason = decision.reason
 
