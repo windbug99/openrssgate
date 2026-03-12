@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 
 setup(
-    name="rssgate",
+    name="openrssgate",
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
@@ -11,7 +11,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "rssgate=rssgate.main:app",
+            "openrssgate=rssgate.main:_run",
+            "rssgate=rssgate.main:_run",
         ]
     },
 )

@@ -1,3 +1,7 @@
+"use client";
+
+import { Card } from "@heroui/react";
+
 import type { Feed } from "@/lib/api";
 
 function formatDate(value: string | null): string {
@@ -12,7 +16,8 @@ export function FeedList({ feeds }: { feeds: Feed[] }) {
   return (
     <div className="feed-list">
       {feeds.map((feed) => (
-        <article className="card feed-item" key={feed.id}>
+        <Card className="feed-item hero-card" key={feed.id}>
+          <Card.Content>
           <h3>{feed.title}</h3>
           <p>{formatDate(feed.published_at)}</p>
           <p>
@@ -20,7 +25,8 @@ export function FeedList({ feeds }: { feeds: Feed[] }) {
               {feed.feed_url}
             </a>
           </p>
-        </article>
+          </Card.Content>
+        </Card>
       ))}
     </div>
   );

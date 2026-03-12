@@ -1,3 +1,5 @@
+@import "@heroui/styles";
+
 :root {
   --bg: #f4efe7;
   --surface: rgba(255, 250, 243, 0.86);
@@ -28,6 +30,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  background: transparent;
 }
 
 a {
@@ -53,6 +56,7 @@ a {
   font-size: 1.2rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  font-weight: 700;
 }
 
 .nav {
@@ -136,6 +140,14 @@ a {
   font-size: 1.35rem;
 }
 
+.hero-card {
+  background: rgba(255, 250, 243, 0.78);
+  border: 1px solid rgba(59, 45, 30, 0.1);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+}
+
 .muted {
   color: var(--muted);
 }
@@ -205,6 +217,10 @@ a {
   color: #8e2b17;
 }
 
+.status strong {
+  margin-right: 8px;
+}
+
 .section {
   margin-top: 26px;
 }
@@ -250,6 +266,10 @@ a {
   font-size: 0.82rem;
 }
 
+.source-card .heroui-chip {
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .source-meta {
   margin-top: 14px;
   display: grid;
@@ -277,12 +297,33 @@ a {
   color: var(--muted);
 }
 
+.feed-item a {
+  word-break: break-all;
+}
+
 .page-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.heroui-nav {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--line);
+}
+
+.heroui-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.heroui-field-wide {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 900px) {
@@ -312,5 +353,13 @@ a {
 
   .nav {
     flex-wrap: wrap;
+  }
+
+  .heroui-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroui-field-wide {
+    grid-column: auto;
   }
 }

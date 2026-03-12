@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Card, Input } from "@heroui/react";
 
 import { createSource, type Source } from "@/lib/api";
 
@@ -56,51 +57,59 @@ export function SourceRegisterForm() {
   }
 
   return (
-    <div className="card panel">
-      <h2>Anonymous Source Registration</h2>
-      <p className="muted">
-        RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
-      </p>
-      <form onSubmit={handleSubmit}>
-        <div className="form-grid">
-          <input
-            className="field field-wide"
-            placeholder="https://blog.example.com/rss.xml"
-            value={form.rss_url}
-            onChange={(event) => setForm((current) => ({ ...current, rss_url: event.target.value }))}
-            required
-          />
-          <input
-            className="field"
-            placeholder="language: ko"
-            value={form.language}
-            onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
-          />
-          <input
-            className="field"
-            placeholder="category: blog"
-            value={form.category}
-            onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-          />
-          <input
-            className="field field-wide"
-            placeholder="tags: AI, tech, semiconductor"
-            value={form.tags}
-            onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
-          />
+    <Card className="hero-card panel">
+      <Card.Header className="flex flex-col items-start gap-3 px-7 pt-7 pb-2">
+        <div>
+          <h2>Anonymous Source Registration</h2>
+          <p className="muted">
+            RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
+          </p>
         </div>
-        <div style={{ marginTop: 14, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button className="button" type="submit" disabled={saving}>
-            {saving ? "Registering..." : "Register Source"}
-          </button>
-        </div>
-      </form>
+      </Card.Header>
+      <Card.Content className="px-7 pb-7">
+        <form onSubmit={handleSubmit}>
+          <div className="heroui-form-grid">
+            <Input
+              className="heroui-field-wide"
+              aria-label="RSS URL"
+              placeholder="https://blog.example.com/rss.xml"
+              value={form.rss_url}
+              onChange={(event) => setForm((current) => ({ ...current, rss_url: event.target.value }))}
+              required
+            />
+            <Input
+              aria-label="Language"
+              placeholder="ko"
+              value={form.language}
+              onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
+            />
+            <Input
+              aria-label="Category"
+              placeholder="blog"
+              value={form.category}
+              onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
+            />
+            <Input
+              className="heroui-field-wide"
+              aria-label="Tags"
+              placeholder="AI, tech, semiconductor"
+              value={form.tags}
+              onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button variant="primary" type="submit" isDisabled={saving}>
+              {saving ? "Registering..." : "Register Source"}
+            </Button>
+          </div>
+        </form>
+      </Card.Content>
       {createdSource ? (
         <div className="status ok">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
       {error ? <div className="status error">{error}</div> : null}
-    </div>
+    </Card>
   );
 }
