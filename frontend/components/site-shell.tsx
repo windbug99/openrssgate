@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Button } from "@heroui/react";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -12,29 +11,21 @@ export function SiteShell({ children }: { children: ReactNode }) {
           <Link href="/" className="brand">
             OpenRSSGate
           </Link>
-          <nav className="nav">
-            <Link href="/">
-              <Button variant="tertiary" size="sm">
-                Home
-              </Button>
-            </Link>
-            <Link href="/sources">
-              <Button variant="tertiary" size="sm">
-                Sources
-              </Button>
-            </Link>
-            <Link href="/feeds">
-              <Button variant="tertiary" size="sm">
-                Feeds
-              </Button>
-            </Link>
-            <Link href="/docs">
-              <Button variant="tertiary" size="sm">
-                Docs
-              </Button>
-            </Link>
-          </nav>
         </div>
+        <nav className="nav">
+          <Link href="/" className="nav-link">
+            Home
+          </Link>
+          <Link href="/sources" className="nav-link">
+            Sources
+          </Link>
+          <Link href="/feeds" className="nav-link">
+            Feeds
+          </Link>
+          <Link href="/docs" className="nav-link">
+            Docs
+          </Link>
+        </nav>
       </header>
       {children}
     </div>

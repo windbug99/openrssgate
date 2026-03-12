@@ -15,17 +15,14 @@ function formatDate(value: string | null): string {
 export function SourceCard({ source }: { source: Source }) {
   return (
     <Card>
-      <Card.Content className="gap-5 p-6">
+      <Card.Content className="gap-4 p-5 md:p-6">
         <header className="source-card-header">
           <div>
-            <h3 className="text-2xl font-semibold tracking-tight">{source.title}</h3>
-            <p className="mt-2 text-base text-default-500">
+            <h3 className="text-xl font-semibold tracking-tight md:text-2xl">{source.title}</h3>
+            <p className="mt-1.5 max-w-4xl text-sm leading-6 text-default-500 md:text-base">
               {source.description ?? "No description was provided by the feed."}
             </p>
           </div>
-          <a href={source.site_url} target="_blank" rel="noreferrer">
-            <Button variant="secondary">Visit</Button>
-          </a>
         </header>
         <div className="chip-row">
           {source.language ? <Chip variant="soft">{source.language}</Chip> : null}
@@ -36,10 +33,21 @@ export function SourceCard({ source }: { source: Source }) {
             </Chip>
           ))}
         </div>
-        <div className="source-meta text-sm text-default-500">
-          <span>RSS: {source.rss_url}</span>
+        <div className="source-meta text-xs leading-5 text-default-400 md:text-sm">
           <span>Last fetched: {formatDate(source.last_fetched_at)}</span>
           <span>Last published: {formatDate(source.last_published_at)}</span>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <a href={source.site_url} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="secondary">
+              Visit
+            </Button>
+          </a>
+          <a href={source.rss_url} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline">
+              RSS URL
+            </Button>
+          </a>
         </div>
       </Card.Content>
     </Card>

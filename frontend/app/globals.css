@@ -30,6 +30,7 @@ a {
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
   margin-bottom: 32px;
 }
@@ -37,8 +38,7 @@ a {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .brand {
@@ -50,8 +50,19 @@ a {
 .nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 32px;
   flex-wrap: wrap;
+}
+
+.nav-link {
+  font-size: 1rem;
+  font-weight: 500;
+  color: hsl(var(--heroui-foreground));
+}
+
+.nav-link:hover {
+  color: hsl(var(--heroui-default-600));
 }
 
 .hero {
@@ -114,11 +125,24 @@ a {
 
   .topbar {
     margin-bottom: 24px;
+    align-items: flex-start;
   }
 
   .page-head,
   .source-card-header {
     flex-direction: column;
+  }
+
+  .topbar-left {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .nav {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 20px;
   }
 
   .form-grid {
