@@ -34,6 +34,7 @@ class SourceResponse(BaseModel):
     category: str | None
     tags: list[str]
     status: str
+    status_reason: str | None
     registered_by: str
     registered_at: datetime
     last_fetched_at: datetime | None

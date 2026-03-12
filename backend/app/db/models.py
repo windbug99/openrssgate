@@ -27,6 +27,7 @@ class Source(Base):
     category: Mapped[str | None] = mapped_column(String(32))
     tags: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    status_reason: Mapped[str | None] = mapped_column(String(255))
     feed_format: Mapped[str | None] = mapped_column(String(32))
     fetch_interval_minutes: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
     last_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -26,6 +26,9 @@ def get_operations_summary(db: Session = Depends(get_session)) -> dict[str, obje
     source_counts = {
         "total": db.scalar(select(func.count()).select_from(Source)) or 0,
         "active": db.scalar(select(func.count()).select_from(Source).where(Source.status == "active")) or 0,
+        "pending_review": db.scalar(select(func.count()).select_from(Source).where(Source.status == "pending_review")) or 0,
+        "hidden": db.scalar(select(func.count()).select_from(Source).where(Source.status == "hidden")) or 0,
+        "rejected": db.scalar(select(func.count()).select_from(Source).where(Source.status == "rejected")) or 0,
         "failing": db.scalar(select(func.count()).select_from(Source).where(Source.consecutive_fail_count > 0)) or 0,
         "stale": db.scalar(
             select(func.count()).select_from(Source).where(
@@ -51,4 +54,36 @@ def get_operations_summary(db: Session = Depends(get_session)) -> dict[str, obje
             "stale_after_minutes": settings.collector_stale_after_minutes,
             "latest_fetched_at": latest_fetch_at,
         },
+    }
+
+
+@router.get(
+    "/sources",
+    summary="Operations source listing",
+    description="List sources across all moderation states for lightweight operations review.",
+)
+def list_operational_sources(
+    status: str | None = None,
+    limit: int = 50,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    query = select(Source)
+    if status:
+        query = query.where(Source.status == status)
+
+    sources = db.scalars(query.order_by(Source.registered_at.desc()).limit(min(max(limit, 1), 200))).all()
+    return {
+        "items": [
+            {
+                "id": source.id,
+                "rss_url": source.rss_url,
+                "title": source.title,
+                "status": source.status,
+                "status_reason": source.status_reason,
+                "registered_at": source.registered_at,
+                "last_fetched_at": source.last_fetched_at,
+                "consecutive_fail_count": source.consecutive_fail_count,
+            }
+            for source in sources
+        ]
     }

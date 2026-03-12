@@ -92,6 +92,12 @@ curl http://127.0.0.1:8000/v1/ops/summary
 
 This returns lightweight collector and database status for production smoke checks.
 
+```bash
+curl "http://127.0.0.1:8000/v1/ops/sources?status=hidden"
+```
+
+This lists sources across moderation states, including `pending_review`, `hidden`, and `rejected`.
+
 ## Test
 
 ```bash

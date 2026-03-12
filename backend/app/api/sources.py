@@ -13,6 +13,7 @@ from app.db.models import Source
 from app.schemas.source import SourceCreate, SourceListResponse, SourceResponse
 from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
+from app.services.review import review_source_bundle
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 
 router = APIRouter(prefix="/sources", tags=["sources"])
@@ -59,6 +60,7 @@ def _to_source_response(source: Source) -> SourceResponse:
         category=source.category,
         tags=source.tags.split(",") if source.tags else [],
         status=source.status,
+        status_reason=source.status_reason,
         registered_by=source.registered_by,
         registered_at=source.registered_at,
         last_fetched_at=source.last_fetched_at,
@@ -162,7 +164,7 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
         language=payload.language,
         category=payload.category,
         tags=",".join(payload.tags),
-        status="active",
+        status="pending_review",
         feed_format=metadata["feed_format"],
         registered_by="web",
     )
@@ -177,12 +179,17 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
             detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
         ) from exc
 
-    ingest_source_bundle(
-        db=db,
-        source=source,
-        metadata=metadata,
-        entries=bundle["entries"],
-    )
+    decision = review_source_bundle(metadata=metadata, entries=bundle["entries"])
+    source.status = decision.status
+    source.status_reason = decision.reason
+
+    if decision.status == "active":
+        ingest_source_bundle(
+            db=db,
+            source=source,
+            metadata=metadata,
+            entries=bundle["entries"],
+        )
     db.commit()
     db.refresh(source)
     return _to_source_response(source)

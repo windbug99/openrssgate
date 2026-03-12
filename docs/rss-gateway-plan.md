@@ -199,9 +199,17 @@ NeonDB 무료 10GB 기준으로 10만 Source까지 여유롭게 수용 가능합
 | `active` | 포함 | 포함 | 정상 공개 Source |
 | `hidden` | 제외 | 제외 | 운영상 숨김 처리 |
 | `deleted` | 제외 | 제외 | 삭제 처리된 Source |
-| `pending_review` | 제외 | 제외 | 차후 자동 검증 파이프라인용 예약 상태 |
+| `pending_review` | 제외 | 제외 | 신규 등록 직후 자동 검증 대기 상태 |
+| `rejected` | 제외 | 제외 | 자동 검증 또는 운영 판단상 등록 거절 |
 
-MVP에서는 웹 익명 등록 후 즉시 기본 검증을 통과하면 `active`로 생성합니다. `pending_review`는 스키마에는 포함하되, 실제 운영 적용은 Phase 2 이후로 둡니다.
+현재 구현에서는 웹 익명 등록이 먼저 `pending_review`로 생성된 뒤, 1차 규칙 기반 자동 검증을 거쳐 아래처럼 상태 전이됩니다.
+
+```
+pending_review
+├── active    : 메타데이터와 엔트리 수가 충분하고 자동 승인 가능
+├── hidden    : 피드 자체는 유효하지만 설명 누락, 엔트리 부족 등 저신뢰 상태
+└── rejected  : 잘못된 제목, 엔트리 없음 등 등록 거절이 명확한 상태
+```
 
 
 
@@ -816,8 +824,8 @@ sources 테이블 추가 컬럼 (Phase 2)
 [ ] Rate Limiting 적용
 [ ] 차등 수집 주기 적용
 [ ] API 응답 Redis 캐싱
-[ ] Source 등록 `pending_review` 상태 및 운영 상태 전이 정비
-[ ] 1차 규칙 기반 자동 검증 도입
+[x] Source 등록 `pending_review` 상태 및 운영 상태 전이 정비
+[x] 1차 규칙 기반 자동 검증 도입
 [ ] 모니터링 및 알림 설정
 [x] API 문서 정비 (Swagger)
 [ ] CLI PyPI 정식 배포 (pip install rssgate)
@@ -847,6 +855,9 @@ sources 테이블 추가 컬럼 (Phase 2)
 - Vercel 프론트 배포
 - 공개 도메인 연결 및 기본 환경변수 설정
 - Claude Desktop local MCP 검증
+- 웹 익명 등록 Rate Limiting 적용
+- Source 자동 검증 및 상태 전이(`pending_review / active / hidden / rejected`) 구현
+- 운영용 상태 요약 및 상태별 Source 조회 API 추가
 
 확인 필요
 - Railway API/worker 장기 안정성 모니터링
@@ -862,9 +873,9 @@ sources 테이블 추가 컬럼 (Phase 2)
 3. 기본 운영 문서(장애 대응, 재배포 절차) 간단 정리
 
 우선순위 2: 서비스 보호
-4. 웹 Source 등록 Rate Limiting 적용
-5. 익명 등록 검증 1차 규칙 기반 파이프라인 도입
-6. Source 상태 전이(active / pending_review / hidden / rejected) 정비
+4. hidden / rejected 상태 운영 기준 구체화
+5. 운영자용 검토/복구 인터페이스 추가
+6. 자동 검증 규칙 고도화
 
 우선순위 3: 배포 완성도
 7. CLI PyPI 배포
@@ -880,17 +891,17 @@ Step 1. Railway 운영값 정리
 - Neon 비밀번호 재발급 후 DATABASE_URL 교체
 - 수집 주기 운영값 확정
 
-Step 2. 공개 등록 보호
-- POST /sources 에 IP 기준 Rate Limiting 적용
-- URL 형식 / 내부망 주소 / 중복 등록 차단 강화
+Step 2. 운영 검토 체계 보강
+- hidden / rejected 상태별 운영 기준과 복구 규칙 정리
+- 운영자용 검토 액션(active 복구 / hidden 전환 / rejected 확정) 추가
 
-Step 3. 등록 상태 체계 정리
-- Source 상태를 active / pending_review / hidden / rejected 로 확장
-- MVP 기본값과 운영 개입 규칙 명시
+Step 3. 자동 검증 규칙 고도화
+- 피드 설명 누락, 엔트리 부족 외에 중복/스팸/저품질 패턴 추가
+- 필요 시 AI 보조 검토로 넘기는 기준 정의
 
-Step 4. 1차 자동 검증 도입
-- fetch 가능 여부, parse 성공 여부, 중복 여부, 단순 스팸 패턴 검사
-- 통과 시 active, 실패 시 rejected 또는 hidden
+Step 4. 운영 가시성 추가
+- /v1/ops/summary 및 /v1/ops/sources 를 기준으로 모니터링
+- 상태별 건수와 최근 실패 Source 점검 루틴 정리
 
 Step 5. 운영 관측성 추가
 - Railway 로그 점검 기준 정리
