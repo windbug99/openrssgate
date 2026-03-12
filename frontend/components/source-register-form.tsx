@@ -25,7 +25,7 @@ function getStatusMessage(source: Source): string {
   return `${source.title} has been registered and is awaiting review.`;
 }
 
-export function SourceRegisterForm() {
+function SourceRegisterFormInner() {
   const [form, setForm] = useState(initialState);
   const [saving, setSaving] = useState(false);
   const [createdSource, setCreatedSource] = useState<Source | null>(null);
@@ -57,59 +57,69 @@ export function SourceRegisterForm() {
   }
 
   return (
-    <Card className="hero-card panel">
-      <Card.Header className="flex flex-col items-start gap-3 px-7 pt-7 pb-2">
-        <div>
-          <h2>Anonymous Source Registration</h2>
-          <p className="muted">
-            RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
-          </p>
+    <>
+      <div className="form-intro">
+        <h2>Anonymous Source Registration</h2>
+        <p className="muted">
+          RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
+        </p>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <div className="heroui-form-grid">
+          <Input
+            className="heroui-field-wide"
+            aria-label="RSS URL"
+            placeholder="https://blog.example.com/rss.xml"
+            value={form.rss_url}
+            onChange={(event) => setForm((current) => ({ ...current, rss_url: event.target.value }))}
+            required
+          />
+          <Input
+            aria-label="Language"
+            placeholder="ko"
+            value={form.language}
+            onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
+          />
+          <Input
+            aria-label="Category"
+            placeholder="blog"
+            value={form.category}
+            onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
+          />
+          <Input
+            className="heroui-field-wide"
+            aria-label="Tags"
+            placeholder="AI, tech, semiconductor"
+            value={form.tags}
+            onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
+          />
         </div>
-      </Card.Header>
-      <Card.Content className="px-7 pb-7">
-        <form onSubmit={handleSubmit}>
-          <div className="heroui-form-grid">
-            <Input
-              className="heroui-field-wide"
-              aria-label="RSS URL"
-              placeholder="https://blog.example.com/rss.xml"
-              value={form.rss_url}
-              onChange={(event) => setForm((current) => ({ ...current, rss_url: event.target.value }))}
-              required
-            />
-            <Input
-              aria-label="Language"
-              placeholder="ko"
-              value={form.language}
-              onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
-            />
-            <Input
-              aria-label="Category"
-              placeholder="blog"
-              value={form.category}
-              onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-            />
-            <Input
-              className="heroui-field-wide"
-              aria-label="Tags"
-              placeholder="AI, tech, semiconductor"
-              value={form.tags}
-              onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
-            />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button variant="primary" type="submit" isDisabled={saving}>
-              {saving ? "Registering..." : "Register Source"}
-            </Button>
-          </div>
-        </form>
-      </Card.Content>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button variant="primary" type="submit" isDisabled={saving}>
+            {saving ? "Registering..." : "Register Source"}
+          </Button>
+        </div>
+      </form>
       {createdSource ? (
         <div className="status ok">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
       {error ? <div className="status error">{error}</div> : null}
+    </>
+  );
+}
+
+export function SourceRegisterForm({ embedded = false }: { embedded?: boolean }) {
+  if (embedded) {
+    return <SourceRegisterFormInner />;
+  }
+
+  return (
+    <Card className="hero-card panel">
+      <Card.Content className="px-7 py-7">
+        <SourceRegisterFormInner />
+      </Card.Content>
     </Card>
   );
 }

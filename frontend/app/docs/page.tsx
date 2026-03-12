@@ -1,3 +1,7 @@
+"use client";
+
+import { Card, Chip } from "@heroui/react";
+
 import { SiteShell } from "@/components/site-shell";
 
 const endpoints = [
@@ -13,45 +17,66 @@ const tools = ["search_sources", "get_source", "get_recent_feeds", "get_source_f
 export default function DocsPage() {
   return (
     <SiteShell>
-      <section className="card panel">
-        <h2>Gateway Interfaces</h2>
-        <p className="muted">
-          The MVP exposes the same public source index through REST, a read-only MCP tool manifest, and a planned CLI
-          surface.
-        </p>
+      <section className="section">
+        <Card className="hero-card panel">
+          <h1 className="page-title">Docs</h1>
+          <p className="muted">
+            Connection details for REST API, remote MCP access, and the public CLI workflow.
+          </p>
+        </Card>
       </section>
 
       <section className="section">
-        <div className="card panel">
+        <Card className="hero-card panel">
           <h2>REST API</h2>
-          <div className="feed-list">
+          <div className="list-stack">
             {endpoints.map(([method, path, description]) => (
-              <div className="feed-item card" key={path}>
-                <h3>
-                  {method} {path}
-                </h3>
-                <p>{description}</p>
+              <div className="list-row" key={path}>
+                <div className="list-row-main">
+                  <strong>
+                    {method} {path}
+                  </strong>
+                  <p className="muted">{description}</p>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </section>
 
       <section className="section">
-        <div className="card panel">
-          <h2>MCP Tools</h2>
+        <Card className="hero-card panel">
+          <h2>MCP</h2>
+          <p className="muted">Remote MCP endpoint for deployed environments.</p>
+          <div className="docs-block">
+            <code>https://openrssgate-production.up.railway.app/mcp/sse</code>
+          </div>
           <div className="pill-row">
             {tools.map((tool) => (
-              <span className="pill" key={tool}>
+              <Chip className="heroui-chip" key={tool}>
                 {tool}
-              </span>
+              </Chip>
             ))}
           </div>
-          <p className="muted" style={{ marginTop: 16 }}>
-            Current backend exposes `/mcp/tools` as a manifest endpoint. SSE transport wiring can be layered on top of
-            the same source and feed APIs.
+        </Card>
+      </section>
+
+      <section className="section">
+        <Card className="hero-card panel">
+          <h2>CLI</h2>
+          <p className="muted">
+            Set the API base URL, then use the read-only `openrssgate` CLI.
           </p>
-        </div>
+          <div className="docs-block">
+            <code>export RSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1</code>
+          </div>
+          <div className="docs-block">
+            <code>openrssgate list</code>
+          </div>
+          <div className="docs-block">
+            <code>openrssgate feeds --since 7d</code>
+          </div>
+        </Card>
       </section>
     </SiteShell>
   );

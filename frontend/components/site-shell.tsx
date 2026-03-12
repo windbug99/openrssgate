@@ -8,26 +8,33 @@ export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link href="/" className="brand">
-          OpenRSSGate
-        </Link>
-        <nav className="nav heroui-nav">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              Home
-            </Button>
+        <div className="topbar-left">
+          <Link href="/" className="brand">
+            OpenRSSGate
           </Link>
-          <Link href="/explore">
-            <Button variant="ghost" size="sm">
-              Explore
-            </Button>
-          </Link>
-          <Link href="/docs">
-            <Button variant="ghost" size="sm">
-              Docs
-            </Button>
-          </Link>
-        </nav>
+          <nav className="nav heroui-nav">
+            <Link href="/">
+              <Button variant="ghost" size="sm">
+                Home
+              </Button>
+            </Link>
+            <Link href="/sources">
+              <Button variant="ghost" size="sm">
+                Sources
+              </Button>
+            </Link>
+            <Link href="/feeds">
+              <Button variant="ghost" size="sm">
+                Feeds
+              </Button>
+            </Link>
+            <Link href="/docs">
+              <Button variant="ghost" size="sm">
+                Docs
+              </Button>
+            </Link>
+          </nav>
+        </div>
       </header>
       {children}
     </div>
