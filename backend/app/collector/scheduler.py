@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.db.models import Source
 from app.services.ingest import ingest_source_bundle, mark_source_fetch_failure
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
+
+logger = logging.getLogger(__name__)
 
 
 def _as_utc_naive(value: datetime) -> datetime:
@@ -33,6 +36,13 @@ async def collect_source(db: Session, source: Source) -> dict[str, object]:
     except InvalidRSSUrlError as exc:
         mark_source_fetch_failure(db, source)
         db.commit()
+        logger.warning(
+            "collector.fetch_failed source_id=%s rss_url=%s fail_count=%s reason=%s",
+            source.id,
+            source.rss_url,
+            source.consecutive_fail_count,
+            str(exc),
+        )
         return {"source_id": source.id, "status": "failed", "reason": str(exc), "inserted": 0}
 
     result = ingest_source_bundle(
@@ -42,6 +52,12 @@ async def collect_source(db: Session, source: Source) -> dict[str, object]:
         entries=bundle["entries"],
     )
     db.commit()
+    logger.info(
+        "collector.fetch_ok source_id=%s rss_url=%s inserted=%s",
+        source.id,
+        source.rss_url,
+        result["inserted"],
+    )
     return {"source_id": source.id, "status": "ok", "inserted": result["inserted"]}
 
 

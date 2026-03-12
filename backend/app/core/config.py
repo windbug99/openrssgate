@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     max_redirects: int = 5
     user_agent: str = "rss-gateway-bot/0.1 (+https://rssgateway.io)"
     collector_poll_interval_seconds: int = 300
+    source_registration_window_seconds: int = 3600
+    source_registration_max_attempts: int = 10
+    source_registration_max_same_host: int = 3
+    collector_stale_after_minutes: int = 180
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
     model_config = SettingsConfigDict(

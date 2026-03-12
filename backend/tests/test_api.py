@@ -19,6 +19,15 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_ops_summary_endpoint() -> None:
+    response = client.get("/v1/ops/summary")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert "sources" in payload
+    assert "collector" in payload
+
+
 def test_mcp_tools_endpoint() -> None:
     response = client.get("/mcp/tools")
     assert response.status_code == 200
@@ -71,3 +80,25 @@ def test_mcp_sse_endpoint_streams_manifest() -> None:
     assert "event: server_ready" in body
     assert "event: tools" in body
     assert "search_sources" in body
+
+
+def test_create_source_is_rate_limited(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            raise sources_module.RateLimitExceededError("Too many source registration attempts. Please try again later.")
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        raise AssertionError("fetch_feed_bundle should not run when rate limited")
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post(
+        "/v1/sources",
+        json={"rss_url": "https://example.com/rss.xml", "tags": []},
+    )
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "rate_limited"

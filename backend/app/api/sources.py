@@ -1,17 +1,50 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
+from app.core.config import get_settings
 from app.db.models import Source
 from app.schemas.source import SourceCreate, SourceListResponse, SourceResponse
 from app.services.ingest import ingest_source_bundle
+from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 
 router = APIRouter(prefix="/sources", tags=["sources"])
+
+
+def _request_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _validate_registration_payload(payload: SourceCreate) -> None:
+    parsed = urlparse(str(payload.rss_url))
+    host = parsed.hostname or ""
+    if len(host) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_rss_url", "message": "RSS hostname is too long."},
+        )
+
+    if payload.language and len(payload.language.strip()) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_language", "message": "Language must be at least 2 characters."},
+        )
+
+    if payload.category and len(payload.category.strip()) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_category", "message": "Category must be at least 2 characters."},
+        )
 
 
 def _to_source_response(source: Source) -> SourceResponse:
@@ -90,7 +123,26 @@ def list_sources(
         409: {"description": "Duplicate RSS URL"},
     },
 )
-async def create_source(payload: SourceCreate, db: Session = Depends(get_session)) -> SourceResponse:
+async def create_source(payload: SourceCreate, request: Request, db: Session = Depends(get_session)) -> SourceResponse:
+    settings = get_settings()
+    _validate_registration_payload(payload)
+
+    request_ip = _request_ip(request)
+    request_host = urlparse(str(payload.rss_url)).hostname or "unknown"
+    try:
+        registration_rate_limiter.enforce(
+            ip=request_ip,
+            host=request_host,
+            window_seconds=settings.source_registration_window_seconds,
+            max_attempts=settings.source_registration_max_attempts,
+            max_same_host=settings.source_registration_max_same_host,
+        )
+    except RateLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "rate_limited", "message": str(exc)},
+        ) from exc
+
     try:
         bundle = await fetch_feed_bundle(str(payload.rss_url))
     except InvalidRSSUrlError as exc:

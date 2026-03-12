@@ -40,6 +40,7 @@ bash scripts/start_worker.sh
 ```
 
 `COLLECTOR_POLL_INTERVAL_SECONDS` can be used to control how often the worker checks for due sources.
+`SOURCE_REGISTRATION_WINDOW_SECONDS`, `SOURCE_REGISTRATION_MAX_ATTEMPTS`, and `SOURCE_REGISTRATION_MAX_SAME_HOST` can be used to control anonymous source registration limits.
 
 ## Local Environment
 
@@ -82,6 +83,14 @@ Claude Desktop verification steps are documented in [docs/claude-desktop-mcp.md]
 Claude Desktop local stdio setup is documented in [docs/claude-desktop-local-mcp.md](/Users/tomato/cursor/openrssgate/docs/claude-desktop-local-mcp.md).
 
 Deployment steps are documented in [docs/deployment-guide.md](/Users/tomato/cursor/openrssgate/docs/deployment-guide.md).
+
+## Operations Summary
+
+```bash
+curl http://127.0.0.1:8000/v1/ops/summary
+```
+
+This returns lightweight collector and database status for production smoke checks.
 
 ## Test
 

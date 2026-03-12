@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.feeds import router as feeds_router
+from app.api.ops import router as ops_router
 from app.api.sources import router as sources_router
 from app.mcp.server import router as mcp_router
 from app.core.config import get_settings
@@ -53,4 +54,5 @@ def health() -> dict[str, str]:
 
 app.include_router(sources_router, prefix=settings.api_prefix)
 app.include_router(feeds_router, prefix=settings.api_prefix)
+app.include_router(ops_router, prefix=settings.api_prefix)
 app.include_router(mcp_router)
