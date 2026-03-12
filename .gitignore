@@ -10,11 +10,12 @@ __pycache__/
 node_modules/
 .next/
 
-# Local env files
+# Environment files
 .env
+.env.local
 .env.production
 
-# Local databases and artifacts
+# Local databases and scratch artifacts
 *.db
 *.db-journal
 *.failed_alembic

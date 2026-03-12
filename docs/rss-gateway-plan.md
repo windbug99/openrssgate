@@ -1,0 +1,889 @@
+# RSS Gateway 서비스 기획 및 구현 계획
+
+> 작성일: 2026년 3월  
+> 버전: v0.1 (기획안)
+
+---
+
+## 1. 서비스 개요
+
+### 1.1 서비스 정의
+
+RSS Gateway는 전 세계 블로그와 웹사이트의 RSS를 중앙에서 인덱싱하고, 사람과 AI 모두가 표준화된 API로 접근할 수 있는 **RSS 중앙 게이트웨이 서비스**입니다.
+
+### 1.2 핵심 목적
+
+| 목적 | 설명 |
+|------|------|
+| RSS 중앙화 | 분산된 RSS를 한 곳에 등록하고 인덱스를 항상 최신 상태로 유지 |
+| AI 접근성 | MCP 서버를 통해 Claude 등 LLM이 Source/Feed 정보를 도구로 활용 |
+| 게이트웨이 역할 | 등록된 Source를 통해 원본 블로그와 RSS XML로 연결되는 진입점 제공 |
+
+### 1.3 서비스 범위 (v1.0)
+
+**포함**
+- Source(RSS) 등록 및 Source Index 관리
+- Feed 메타 정보 주기적 수집 (제목, URL, 발행일)
+- REST API 제공
+- MCP 서버 운영
+- 웹 프론트 페이지 (익명 Source 등록 / Source 탐색 / Source Index 업데이트 시간 표시)
+- CLI 도구 (AI Agent / 개발자용 조회 인터페이스)
+
+**미포함 (차후 RSS Reader 서비스)**
+- 사용자 구독 관리
+- Feed 본문 저장
+- 번역/요약 등 LLM 처리
+- 개인화 추천
+
+---
+
+## 2. 서비스 구조
+
+### 2.1 전체 아키텍처
+
+```
+[블로거 / 일반 사용자]     [개발자 / AI Agent]
+   웹 프론트 페이지              CLI 도구
+         │                        │
+         └──────────┬─────────────┘
+                    │ Source 등록
+                    ▼
+┌──────────────────────────────────────┐
+│             RSS Gateway              │
+│                                      │
+│  ┌──────────┐  ┌──────┐  ┌────────┐  │
+│  │ REST API │  │ 웹UI │  │MCP 서버│  │
+│  └──────────┘  └──────┘  └────────┘  │
+│               │                      │
+│  ┌────────────────────────────────┐  │
+│  │       Source Index DB          │  │
+│  └────────────────────────────────┘  │
+│               │                      │
+│  ┌────────────────────────────────┐  │
+│  │      Feed 수집기 (Cron)        │  │
+│  └────────────────────────────────┘  │
+└──────────────────────────────────────┘
+         │                    │
+         ▼                    ▼
+[사용자 / 외부 서비스]   [LLM (Claude 등)]
+```
+
+### 2.2 데이터 흐름
+
+```
+1. 블로거/사용자가 웹 프론트에서 Source(RSS URL) 등록
+2. 수집기가 주기적으로 각 Source의 RSS XML을 fetch
+3. 제목/URL/발행일 등 Feed 메타정보만 파싱하여 DB에 저장 (Source Index 업데이트)
+4. 사용자/LLM이 API, CLI 또는 MCP로 Source/Feed 조회
+5. 필요 시 원본 블로그 또는 RSS XML로 연결
+```
+
+---
+
+## 3. 핵심 기능 정의
+
+### 3.1 Source 등록 및 관리
+
+| 기능 | 설명 |
+|------|------|
+| Source 등록 | RSS URL 입력, 유효성 검증 후 Source로 등록 |
+| 중복 방지 | 동일 RSS URL 중복 등록 차단 |
+| 메타 정보 자동 수집 | 등록 시 블로그 이름, 설명, favicon 등 자동 파싱 |
+| 메타 정보 관리 | 언어, 카테고리, 태그 등 수동 입력 가능 |
+
+### 3.2 Source Index 수집 (크론잡)
+
+수집기는 등록된 RSS URL에 주기적으로 HTTP 요청을 보내 소스 메타정보를 수집합니다.
+
+**용어 정의**
+
+| 용어 | 설명 |
+|------|------|
+| Source | RSS를 제공하는 블로그/사이트. 사용자가 등록하는 단위 |
+| Feed | Source에서 발행되는 개별 글/콘텐츠 |
+
+**DB 스키마**
+
+```
+sources 테이블 (RSS 소스 정보)
+
+  [기본 식별 정보]
+  ├── id                       UUID, PK
+  ├── rss_url                  RSS XML 주소 (UNIQUE)
+  ├── site_url                 블로그/사이트 원문 주소
+  ├── title                    블로그/채널 이름
+  ├── description              블로그 소개 (RSS에서 자동 수집)
+  ├── favicon_url              파비콘 이미지 URL
+  └── cover_image_url          대표 이미지 URL (OGP 이미지 등)
+
+  [분류 정보]
+  ├── language                 기본 언어 (ko, en, ja 등)
+  ├── country                  발행 국가 (KR, US 등)
+  ├── category                 콘텐츠 유형 (blog / news / magazine / podcast / newsletter)
+  └── tags                     분야 태그 3~5개 (["IT", "AI", "반도체"])
+
+  [수집 및 상태 정보]
+  ├── status                   active / hidden / deleted / pending_review
+  ├── feed_format              피드 형식 (rss2 / atom / json_feed)
+  ├── fetch_interval_minutes   수집 주기 (분) - 차등 수집에 활용
+  ├── last_fetched_at          마지막 수집 시각 (웹 프론트 표시용)
+  ├── last_published_at        마지막 Feed 발행 시각 (활성도 판단 기준)
+  └── consecutive_fail_count   연속 수집 실패 횟수 (N회 이상 시 자동 비활성)
+
+  [품질 및 통계 정보]
+  ├── total_feeds_count        전체 수집 Feed 수
+  ├── avg_publish_interval_hours  평균 발행 주기 (시간) - Reader의 업데이트 빈도 표시용
+  ├── report_score             누적 신고 점수
+  └── ai_reviewed_at           AI 마지막 검토 시각
+
+  [등록 출처 정보]
+  ├── registered_by            등록 경로 (web / cli / api / mcp)
+  ├── registered_at            등록 시각
+  └── source_ip_hash           등록자 IP 해시 (어뷰징 추적, 비식별)
+
+feeds 테이블 (개별 피드 정보)
+  ├── id                       UUID, PK
+  ├── source_id                소속 Source (FK)
+  ├── guid                     고유 ID (중복 방지)
+  ├── title                    글 제목
+  ├── feed_url                 글 원문 링크
+  └── published_at             발행일
+```
+
+**MVP 권장 제약 조건**
+
+```
+sources
+├── UNIQUE(rss_url)
+├── INDEX(status, last_fetched_at)
+└── INDEX(language, category)
+
+feeds
+├── UNIQUE(source_id, guid)
+├── INDEX(source_id, published_at DESC)
+└── INDEX(published_at DESC)
+```
+
+`guid`가 비어 있거나 신뢰할 수 없는 경우를 대비해, 구현에서는 아래 우선순위로 `entry_identity`를 생성해 저장하는 것을 권장합니다.
+
+```
+1. guid가 존재하면 guid 사용
+2. guid가 없으면 feed_url 사용
+3. guid와 feed_url 모두 불안정하면 title + published_at 해시 사용
+```
+
+즉, DB 컬럼 이름은 `guid`를 유지하더라도 실제 입력값은 "중복 판정용 안정 식별자"로 다루는 것이 안전합니다.
+
+**Feed 보존 기간 정책**
+
+```
+보존 기간: 30일
+├── 30일 이내 Feed  → 정상 보존
+└── 30일 초과 Feed  → 매일 새벽 크론잡으로 자동 삭제 (TTL)
+```
+
+RSS의 본질은 현재의 새로운 콘텐츠 소비이므로 아카이브 목적의 장기 보존은 게이트웨이 역할 범위를 벗어납니다. 30일은 Reader 연동 서비스의 "못 읽은 글 나중에 보기" 패턴을 커버하는 최소한의 기준선입니다.
+
+| Source 수 | 30일 Feed 수 (평균 1건/일) | 저장 용량 |
+|-----------|--------------------------|---------|
+| 1,000개 | 30,000건 | ~9MB |
+| 10,000개 | 300,000건 | ~90MB |
+| 100,000개 | 3,000,000건 | ~850MB |
+
+NeonDB 무료 10GB 기준으로 10만 Source까지 여유롭게 수용 가능합니다.
+
+**MVP 상태값 운영 규칙**
+
+| 상태 | 공개 조회 | 수집 대상 | 설명 |
+|------|----------|----------|------|
+| `active` | 포함 | 포함 | 정상 공개 Source |
+| `hidden` | 제외 | 제외 | 운영상 숨김 처리 |
+| `deleted` | 제외 | 제외 | 삭제 처리된 Source |
+| `pending_review` | 제외 | 제외 | 차후 자동 검증 파이프라인용 예약 상태 |
+
+MVP에서는 웹 익명 등록 후 즉시 기본 검증을 통과하면 `active`로 생성합니다. `pending_review`는 스키마에는 포함하되, 실제 운영 적용은 Phase 2 이후로 둡니다.
+
+
+
+```
+MVP 단계 필수
+├── id, rss_url, site_url, title, description
+├── favicon_url, language, category, tags
+├── status, feed_format
+├── last_fetched_at, last_published_at, consecutive_fail_count
+└── registered_by, registered_at
+
+Phase 2 이후 추가
+├── country, cover_image_url
+├── avg_publish_interval_hours, total_feeds_count
+├── report_score, ai_reviewed_at
+└── source_ip_hash
+```
+
+**수집 주기 전략 (차등 적용)**
+
+| 분류 | 기준 | 수집 주기 |
+|------|------|----------|
+| 활성 Source | 최근 7일 이내 업데이트 | 1시간 |
+| 일반 Source | 최근 30일 이내 업데이트 | 6시간 |
+| 비활성 Source | 30일 이상 업데이트 없음 | 24시간 |
+
+**수집 작업 순서**
+
+```
+1. DB에서 수집 대상 Source 목록 조회
+2. 각 rss_url로 HTTP GET 요청 (RSS XML fetch)
+3. XML 파싱 (feedparser)
+4. 새 피드인지 guid로 중복 확인
+5. 신규 항목만 feeds에 INSERT
+6. sources 테이블의 last_fetched_at 업데이트
+7. [매일 새벽] 30일 초과 Feed 자동 삭제 (TTL 크론잡)
+```
+
+**MVP 수집기 동작 규칙**
+
+```
+수집 대상 조건
+- status = active
+- 현재 시각 >= last_fetched_at + fetch_interval_minutes
+
+HTTP fetch 규칙
+- 요청 타임아웃: 10초
+- 최대 리다이렉트: 5회
+- User-Agent: rss-gateway-bot/0.1 (+서비스 URL)
+
+실패 처리
+- fetch 또는 파싱 실패 시 consecutive_fail_count += 1
+- 성공 시 consecutive_fail_count = 0
+- 5회 연속 실패 시 fetch_interval_minutes를 24시간으로 상향
+
+성공 처리
+- last_fetched_at 갱신
+- 신규 Feed가 있으면 last_published_at 갱신
+- Feed 수 기준 total_feeds_count 갱신은 Phase 2에서 추가
+```
+
+**MVP 배포 운영 방식**
+
+초기에는 Railway에서 API 서버와 수집기를 같은 코드베이스로 운영하되, 프로세스는 분리하는 것을 권장합니다.
+
+```
+권장 구성
+- web service: FastAPI API + MCP endpoint
+- worker service: APScheduler 수집기 전용 프로세스
+```
+
+이렇게 하면 API 인스턴스 재시작이나 스케일링 때문에 수집기가 중복 실행되는 문제를 줄일 수 있습니다.
+
+### 3.3 REST API
+
+**Base URL**: `https://api.rssgateway.io/v1`
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/sources` | 등록된 Source 목록 조회 |
+| POST | `/sources` | 웹 프론트 전용 Source 등록 |
+| GET | `/sources/{source_id}` | 특정 RSS 정보 조회 |
+| GET | `/sources/{source_id}/feeds` | 특정 Source의 Feed 목록 조회 |
+| GET | `/sources/{source_id}/feeds/{feed_id}` | 특정 Feed 상세 조회 |
+| GET | `/feeds` | 전체 Feed 통합 조회 (필터 가능) |
+
+**주요 쿼리 파라미터**
+
+```
+GET /sources
+  ?keyword=AI          키워드 검색
+  ?language=ko         언어 필터
+  ?category=blog       카테고리 필터
+  ?tag=tech            태그 필터
+  ?page=1&limit=20     페이지네이션
+
+GET /feeds
+  ?since=24h           최근 N시간 이내
+  ?source_id=xxx       특정 Source 필터
+  ?language=ko         언어 필터
+```
+
+**MVP 엔드포인트 상세 규격**
+
+`POST /sources`
+
+요청 예시
+
+```json
+{
+  "rss_url": "https://blog.example.com/rss.xml",
+  "language": "ko",
+  "category": "blog",
+  "tags": ["AI", "tech"]
+}
+```
+
+처리 규칙
+
+```
+1. rss_url 필수
+2. language, category, tags는 선택
+3. tags는 최대 5개, 각 값은 20자 이내
+4. 서버가 RSS fetch 후 site_url, title, description, favicon_url 자동 채움
+5. 동일 rss_url이 이미 존재하면 409 Conflict
+6. 유효하지 않은 RSS면 400 Bad Request
+```
+
+응답 예시
+
+```json
+{
+  "id": "f6f2b2b4-8fd1-4f11-a1c1-1b97d6baf001",
+  "rss_url": "https://blog.example.com/rss.xml",
+  "site_url": "https://blog.example.com",
+  "title": "Example Blog",
+  "description": "AI and engineering notes",
+  "favicon_url": "https://blog.example.com/favicon.ico",
+  "language": "ko",
+  "category": "blog",
+  "tags": ["AI", "tech"],
+  "status": "active",
+  "registered_by": "web",
+  "registered_at": "2026-03-12T09:00:00Z"
+}
+```
+
+`GET /sources`
+
+```
+기본 정렬: last_published_at DESC NULLS LAST, registered_at DESC
+기본 page=1, limit=20
+최대 limit=100
+반환 대상: status = active 만 포함
+```
+
+`GET /feeds`
+
+```
+기본 정렬: published_at DESC
+기본 page=1, limit=20
+최대 limit=100
+since 형식: 1h / 24h / 7d
+반환 대상: active Source에 속한 Feed만 포함
+```
+
+**에러 응답 규격**
+
+```json
+{
+  "error": {
+    "code": "duplicate_source",
+    "message": "This RSS URL is already registered."
+  }
+}
+```
+
+MVP에서는 최소한 아래 코드들을 고정해두는 것이 좋습니다.
+
+| HTTP | code | 의미 |
+|------|------|------|
+| `400` | `invalid_rss_url` | 형식 오류 또는 파싱 불가 |
+| `404` | `source_not_found` | Source 없음 |
+| `409` | `duplicate_source` | 이미 등록된 RSS URL |
+| `429` | `rate_limited` | 등록 또는 조회 제한 초과 |
+
+### 3.4 MCP 서버
+
+LLM이 게이트웨이 API를 도구(Tool)로 호출할 수 있도록 MCP 서버를 운영합니다.
+
+**전송 방식**: HTTP SSE (공개 서비스, URL 접근)
+
+**MCP Tool 목록**
+
+| Tool 이름 | 설명 |
+|-----------|------|
+| `search_sources` | 키워드/언어/태그로 Source 검색 |
+| `get_source` | 특정 Source 상세 정보 조회 |
+| `get_recent_feeds` | 최근 N시간 이내 발행된 Feed 목록 조회 |
+| `get_source_feeds` | 특정 Source의 최근 Feed 목록 조회 |
+
+**MCP Tool 설명 예시**
+
+```
+search_sources:
+  "등록된 RSS Source 목록을 검색합니다.
+   키워드로 Source를 찾거나 언어/카테고리/태그로 필터링할 수 있습니다.
+   예: 'AI 관련 한국어 블로그 찾아줘' → keyword=AI, language=ko, category=blog"
+
+get_recent_feeds:
+  "최근 N시간 이내 발행된 Feed를 조회합니다.
+   특정 Source 또는 전체 Source 대상으로 조회 가능합니다.
+   예: '오늘 IT 기술 블로그 글 목록 보여줘' → tag=IT, since=24h"
+```
+
+### 3.5 웹 프론트 페이지
+
+로그인 없이 누구나 사용할 수 있는 익명 기반 웹 인터페이스입니다.
+
+**페이지 구성**
+
+| 페이지 | 주요 기능 |
+|--------|----------|
+| 홈 | 서비스 소개, Source 등록 입력창, 통계 (전체 Source 수, 전체 Feed 수 등) |
+| Source 탐색 | 등록된 전체 Source 검색/필터 (키워드, 언어, 카테고리, 태그), 마지막 Source Index 업데이트 시간 표시 |
+| API 문서 | 개발자용 REST API / MCP / CLI 사용 가이드 |
+
+**Source 등록 UX 흐름**
+
+```
+1. RSS URL 입력
+2. [확인] 버튼 클릭 → RSS URL 유효성 실시간 검증
+3. 유효하면 블로그 이름/설명/favicon 자동 미리보기
+4. 언어, 카테고리, 태그 입력 (선택)
+5. [등록] 버튼 → 완료 (로그인 불필요)
+```
+
+**웹 등록 시 서버 검증 규칙**
+
+```
+허용
+- 공개 http/https URL
+- 실제로 접근 가능한 RSS/Atom/JSON Feed
+
+차단
+- localhost
+- 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+- file://, ftp:// 등 비HTTP 스킴
+- HTML 페이지만 존재하고 피드가 아닌 URL
+```
+
+**웹 등록 Rate Limit 권장값**
+
+```
+- 동일 IP당 분당 5회 검증 요청
+- 동일 IP당 일일 20개 Source 등록
+```
+
+**Source 탐색 화면 표시 항목**
+
+```
+[favicon] [블로그 이름]  [언어]  [카테고리]  [태그]
+마지막 Feed 수집: 2026-03-11 14:32  ← Source Index 마지막 수집 시각
+최근 Feed: [글 제목] - 2026-03-11
+```
+
+**기술 스택**
+
+| 항목 | 기술 |
+|------|------|
+| 프레임워크 | Next.js |
+| 스타일 | Tailwind CSS |
+| 인증 | 없음 (완전 익명) |
+| 배포 | Vercel |
+
+---
+
+### 3.6 CLI 도구
+
+CLI는 단순 편의 도구가 아니라 **MCP와 동등한 LLM 조회 인터페이스**입니다. MCP를 지원하지 않는 LLM 환경에서도 CLI를 통해 게이트웨이에 접근할 수 있으며, AI Agent가 bash Tool Use로 직접 실행하는 것이 주요 사용 시나리오입니다.
+
+**LLM 연동 인터페이스 비교**
+
+```
+MCP 지원 환경 (Claude.ai 등)
+  → MCP 서버로 연결
+
+MCP 미지원 환경 (ChatGPT, Gemini, 기타 Agent 등)
+  → CLI를 bash Tool Use로 실행
+     $ rssgate feeds --tag AI --lang ko --since 24h --json
+```
+
+두 인터페이스가 동일한 게이트웨이 API를 바라보므로 결과가 동일합니다.
+
+**AI Agent 사용 시나리오**
+
+```
+사용자: "오늘 AI 관련 한국어 블로그 글 요약해줘"
+        ↓
+AI Agent
+  $ rssgate feeds --tag AI --lang ko --since 24h --json
+  → JSON 결과 수신 → 파싱 → 요약 제공
+```
+
+**주요 명령어**
+
+```bash
+# 등록된 RSS 목록 조회
+rssgate list
+rssgate list --tag AI --lang ko
+
+# Feed 조회
+rssgate feeds <source_id>
+rssgate feeds --tag AI --lang ko --since 24h
+```
+
+**출력 형식**
+
+AI Agent가 파싱하기 쉽도록 JSON 출력을 필수 지원합니다.
+
+```bash
+# 기본: 사람이 읽기 좋은 텍스트
+rssgate list
+
+# AI Agent / 스크립트 연동용 JSON (모든 명령어에 지원)
+rssgate list --json
+rssgate feeds --tag AI --since 24h --json
+```
+
+**설치 방법**
+
+| 대상 | 설치 방법 | 시기 |
+|------|----------|------|
+| AI Agent / 개발자 (Python 환경) | `pip install rssgate` | MVP |
+| Mac 일반 사용자 | `brew install rssgate` | Phase 2 |
+| 바이너리 직접 설치 | `curl -L https://rssgateway.io/install.sh \| sh` | Phase 2 |
+
+**기술 스택**
+
+| 항목 | 기술 |
+|------|------|
+| 언어 | Python |
+| CLI 프레임워크 | Typer |
+| 출력 | 텍스트 (기본) / JSON (`--json` 옵션, 전 명령어 지원) |
+| 배포 | PyPI (`pip install rssgate`) → brew / 바이너리 (Phase 2) |
+
+---
+
+## 4. 기술 스택
+
+### 4.1 전체 스택
+
+| 영역 | 기술 | 선택 이유 |
+|------|------|----------|
+| 언어 | Python | feedparser 생태계, FastMCP 지원, LLM 연동 용이 |
+| API 프레임워크 | FastAPI | 비동기 처리, 자동 문서화 (Swagger) |
+| MCP 프레임워크 | FastMCP | Python 기반 MCP 서버 구현 최적 |
+| 웹 프론트 | Next.js + Tailwind CSS | 빠른 개발, Vercel 배포 최적 |
+| CLI 도구 | Python + Typer | PyPI 배포, API와 동일 언어로 유지보수 용이 |
+| DB | PostgreSQL (NeonDB) | 안정성, 전문 검색 지원, 무료 10GB |
+| 캐시 | Redis | API 응답 캐싱, 크론잡 중복 실행 방지 |
+| 수집기 | APScheduler | FastAPI 내장, 초기엔 별도 서버 불필요 |
+| RSS 파싱 | feedparser | Python RSS/Atom 파싱 표준 라이브러리 |
+| HTTP 클라이언트 | httpx | 비동기 HTTP 요청 |
+
+### 4.2 인프라
+
+| 영역 | 서비스 | 비고 |
+|------|--------|------|
+| DB | NeonDB | PostgreSQL, 무료 10GB, 브랜치 기능 |
+| API 서버 | Railway | 간편 배포, $5~10/월 |
+| 웹 프론트 | Vercel | Next.js 최적, 무료 티어로 시작 |
+| CLI | PyPI | pip install rssgate |
+| 코드 관리 | GitHub | CI/CD 연동 |
+| 도메인 | 전용 도메인 | 예: rssgateway.io |
+
+**초기 배포 구조 권장안**
+
+```
+Vercel
+└── frontend
+
+Railway
+├── api service      # FastAPI + MCP SSE endpoint
+├── collector worker # APScheduler 전용
+└── Redis            # 캐시/락 (Phase 2)
+
+NeonDB
+└── PostgreSQL
+```
+
+MVP에서는 Redis 없이도 시작할 수 있지만, 수집기 중복 실행 제어가 필요해지는 시점부터 도입합니다.
+
+---
+
+## 5. 프로젝트 구조
+
+```
+rss-gateway/
+├── backend/                      # FastAPI 서버
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── sources.py         # Source 등록/조회 API
+│   │   │   └── feeds.py           # Feed 조회 API
+│   │   ├── mcp/
+│   │   │   └── server.py         # MCP 서버 (FastMCP)
+│   │   ├── collector/
+│   │   │   └── scheduler.py      # 수집기 크론잡 (APScheduler)
+│   │   ├── db/
+│   │   │   ├── models.py         # DB 모델 (SQLAlchemy)
+│   │   │   └── database.py       # DB 연결 설정
+│   │   ├── schemas/
+│   │   │   ├── source.py          # Pydantic 스키마
+│   │   │   └── feed_schema.py         # Feed Pydantic 스키마
+│   │   └── main.py               # 진입점
+│   ├── tests/
+│   ├── .env
+│   └── requirements.txt
+│
+├── frontend/                     # Next.js 웹 프론트
+│   ├── pages/
+│   │   ├── index.tsx             # 홈 (서비스 소개 + Source 등록)
+│   │   ├── explore.tsx           # Source 탐색 (Source Index 업데이트 시간 포함)
+│   │   └── docs.tsx              # API 문서
+│   ├── components/
+│   └── package.json
+│
+├── cli/                          # CLI 도구 (rssgate)
+│   ├── rssgate/
+│   │   ├── main.py               # Typer CLI 진입점
+│   │   ├── commands/
+│   │   │   ├── list.py           # rssgate list
+│   │   │   └── feeds.py          # rssgate feeds
+│   ├── setup.py
+│   └── README.md
+│
+└── README.md
+```
+
+---
+
+## 6. 인증 및 보안
+
+### 6.1 API 인증
+
+| 접근 유형 | 인증 방식 |
+|-----------|----------|
+| RSS 조회 (읽기) | 무인증 (공개) |
+| 웹 프론트 Source 등록 | 무인증 (익명 등록) |
+| CLI / MCP 접근 | 무인증 (조회 전용) |
+| Source 수정/삭제 | 운영자 내부 기능 또는 Phase 2 이후 재정의 |
+
+### 6.2 어뷰징 방지 (v1.0 기본)
+
+v1.0에서는 등록 단계의 기본 방어만 적용합니다.
+
+| 정책 | 내용 |
+|------|------|
+| Rate Limit | IP 기준 분당 요청 수 제한 |
+| Source 등록 제한 | IP당 일일 최대 등록 가능 Source 수 제한 |
+| 유효성 검증 | 등록 시 RSS URL 실제 접근 가능 여부 확인 |
+| 중복 방지 | 동일 RSS URL 재등록 차단 |
+
+### 6.2.1 익명 등록 검증 파이프라인 (차후 개선방안)
+
+웹 프론트 익명 등록을 유지하면서 어뷰징 대응을 강화하기 위해, 향후 `2단계 자동 검증 파이프라인`을 추가할 수 있습니다.
+
+**목표 상태**
+
+```
+신규 등록 Source
+  ↓
+status = pending_review
+  ↓
+1차 규칙 기반 자동 검증
+  ↓
+통과 시 active / 애매하면 AI 검토 / 실패 시 hidden 또는 rejected
+```
+
+**1차 규칙 기반 자동 검증**
+
+비용이 낮고 확실한 판정이 가능한 항목은 AI 없이 먼저 처리합니다.
+
+```
+검사 항목 예시
+1. URL 형식 검사
+2. localhost / private IP / 내부망 대역 차단
+3. HTTP fetch 가능 여부 및 타임아웃 검사
+4. RSS / Atom / JSON Feed 파싱 가능 여부
+5. rss_url, site_url 기준 중복 등록 검사
+6. 비정상 리다이렉트 또는 과도한 리다이렉트 차단
+7. 최근 Feed 개수 부족, 제목 반복 패턴 등 명백한 저품질 신호 감지
+```
+
+**2차 AI 검토**
+
+규칙 기반 검사로 확정하기 어려운 경우에만 AI Agent가 보조 판정을 수행합니다.
+
+```
+AI 검토 대상 예시
+1. 광고성 / 스팸성 콘텐츠 여부
+2. 동일 사이트의 변형 RSS인지 여부
+3. 콘텐츠 발행 패턴이 비정상인지 여부
+4. 사람이 볼 만한 정상 Source인지 최종 보조 판단
+```
+
+**상태 전이 예시**
+
+| 상태 | 의미 |
+|------|------|
+| `pending_review` | 등록 직후, 자동 검증 대기 상태 |
+| `active` | 검증 통과 후 공개 조회 가능 |
+| `hidden` | 운영상 노출 중단, 내부 검토 대상 |
+| `rejected` | 자동 검증 또는 AI 검토 실패 |
+| `deleted` | 삭제 처리 |
+
+이 파이프라인은 MVP 필수 범위는 아니며, 웹 익명 등록이 안정화된 뒤 Phase 2~3에서 도입하는 것을 목표로 합니다.
+
+### 6.3 커뮤니티 기반 어뷰징 방지 (고도화 계획)
+
+게이트웨이는 로그인을 제공하지 않으므로, **외부 서비스(RSS Reader 등)가 신고를 대신 수집하고 게이트웨이 신고 API로 전송**하는 구조를 채택합니다. 게이트웨이는 신고를 받고 AI가 판단하는 역할만 담당합니다.
+
+**신고 흐름**
+
+```
+[RSS Reader / 외부 서비스]
+  로그인한 사용자가 신고 버튼 클릭
+        ↓
+  서비스 자체 API Key로 게이트웨이에 신고 전송
+  POST /sources/{source_id}/report
+  { "type": "spam", "reporter": "rss-reader-service" }
+        ↓
+[게이트웨이 신고 API]
+  신고 누적 → 임계값 도달 → AI Agent 자동 판단
+        ↓
+  ┌──────────────┬───────────────┬──────────────┐
+  자동 비활성화    숨김+운영자알림   신고 기각
+  (명확한 스팸)   (판단 애매)     (정상 Source)
+```
+
+**신고 유형 및 가중치**
+
+| 신고 유형 | 설명 | 가중치 |
+|----------|------|--------|
+| `spam` | 상업성 광고 Source | 높음 |
+| `harmful` | 유해 콘텐츠 | 높음 |
+| `inaccessible` | RSS URL 장기 접근 불가 | 중간 |
+| `duplicate` | 동일 블로그 중복 등록 | 낮음 |
+
+**AI Agent 판단 기준**
+
+신고 점수가 임계값에 도달하면 AI가 해당 Source를 직접 확인합니다.
+
+```
+확인 항목:
+1. RSS URL 실제 접근 가능 여부
+2. 최근 Feed 10개 내용 → 스팸성 여부 판단
+3. Feed 발행 패턴 이상 여부 (하루 수백 건 등)
+4. 신고 유형과 실제 내용 일치 여부
+```
+
+**신고 API 접근 제어**
+
+```
+- 등록된 서비스의 API Key 필수 (익명 신고 불가)
+- 서비스당 동일 Source에 하루 N건 신고 제한
+- 신고 출처(reporter) 기록 → AI 판단 시 참고
+- 신고가 기각되면 해당 서비스의 신고 가중치 하락
+```
+
+**DB 추가 항목**
+
+```
+source_reports 테이블
+├── source_id      신고 대상 Source
+├── report_type    신고 유형
+├── reporter       신고 출처 서비스명
+├── weight         신고 가중치
+└── created_at     신고 시각
+
+sources 테이블 추가 컬럼 (Phase 2)
+├── report_score   누적 신고 점수
+├── status         active / hidden / deleted / pending_review
+└── ai_reviewed_at AI 마지막 검토 시각
+```
+
+---
+
+## 7. 구현 로드맵
+
+### Phase 1: MVP (1~2개월)
+
+```
+목표: 기본 동작하는 게이트웨이
+
+[ ] DB 스키마 설계 및 생성 (NeonDB)
+[x] Source 등록/조회 REST API 구현 (/sources, /feeds)
+[x] Source Index 수집기 구현 (APScheduler)
+[x] 조회 전용 MCP 서버 구현 (FastMCP)
+[x] 웹 프론트 MVP (홈 + Source 등록 + Source 탐색)
+[x] CLI 도구 기본 명령어 구현 (list / feeds)
+[x] Claude Desktop으로 MCP 연결 검증
+[ ] Railway + Vercel 배포
+```
+
+### Phase 2: 안정화 (2~3개월)
+
+```
+목표: 운영 품질 확보
+
+[ ] API Key 인증 시스템
+[ ] Rate Limiting 적용
+[ ] 차등 수집 주기 적용
+[ ] API 응답 Redis 캐싱
+[ ] Source 등록 `pending_review` 상태 및 운영 상태 전이 정비
+[ ] 1차 규칙 기반 자동 검증 도입
+[ ] 모니터링 및 알림 설정
+[ ] API 문서 정비 (Swagger)
+[ ] CLI PyPI 정식 배포 (pip install rssgate)
+```
+
+### Phase 3: 확장 (3개월 이후)
+
+```
+목표: 규모 확장 및 품질 관리
+
+[ ] 수집기 Worker 분리
+[ ] 전문 검색 고도화
+[ ] RSS Reader 서비스 연동 준비
+[ ] 신고 API 구현 (외부 서비스 연동용)
+[ ] 2차 AI 보조 검토 파이프라인 구축
+[ ] AI Agent 어뷰징 판단 파이프라인 구축
+[ ] Source 신뢰도 점수 시스템
+```
+
+---
+
+## 8. 확장성 계획
+
+### 8.1 Source 규모별 대응
+
+| Source 수 | 인프라 구성 | 예상 비용 |
+|-----------|-----------|----------|
+| ~1,000개 | 단일 서버 + NeonDB | $10~20/월 |
+| ~10,000개 | 수집기 Worker 분리 | $30~50/월 |
+| ~100,000개 | Worker 수평 확장 + Redis 큐 | $50~100/월 |
+
+### 8.2 RSS Reader 서비스 연동
+
+게이트웨이와 RSS Reader는 **통합 구조**로 설계합니다.
+
+```
+Gateway (공통 백엔드)
+├── /api/gateway/*   → AI / 외부 접근용 (공개)
+└── /api/reader/*    → 로그인 사용자용 (인증 필요)
+```
+
+Source Index DB와 수집 인프라를 공유하므로 중복 없이 Reader 서비스를 추가할 수 있습니다.
+
+---
+
+## 9. 주요 의사결정 기록
+
+| 항목 | 결정 | 이유 |
+|------|------|------|
+| Feed 보존 기간 | 30일 | RSS는 현재 콘텐츠 소비가 본질, 30일이 Reader 연동 최소 기준선이자 DB 효율 균형점 |
+| 용어 정의 | Source (RSS 제공 블로그/사이트), Feed (개별 글) | RSS 생태계 표준 용어 기반, 다양한 콘텐츠 유형 포괄 |
+| Feed 수집 방식 | 주기적 캐싱 (옵션 B) | 안정적 응답, 원본 블로그 부하 없음 |
+| Feed 저장 범위 | 메타정보만 (제목/URL/발행일) | 저작권 이슈 회피, DB 경량 유지 |
+| MCP 전송 방식 | HTTP SSE | 공개 서비스, URL로 누구나 접근 가능 |
+| DB | NeonDB | Supabase 무료 소진, 10GB 무료, 브랜치 기능 |
+| Reader 통합 여부 | 게이트웨이와 통합 | 수집 인프라 공유, 중복 제거 |
+| 초기 검증 방법 | Claude Desktop MCP 연결 | 가장 빠른 검증 방법 |
+| 웹 프론트 인증 | 없음 (완전 익명) | 게이트웨이는 인프라 역할, 로그인 불필요 |
+| Source 등록 채널 | 웹 프론트만 허용 | 공개 등록 창구를 하나로 제한해 어뷰징 대응 단순화 |
+| 익명 등록 검증 전략 | 1차 규칙 기반, 2차 AI 보조 검토로 확장 예정 | 비용과 정확도를 함께 관리하기 위한 단계적 검증 구조 |
+| 웹 프론트 프레임워크 | Next.js | Vercel 배포 최적, 빠른 개발 |
+| CLI / MCP 권한 | 조회 전용 | LLM 연동은 유지하되 익명 등록 남용을 방지 |
+| CLI 목적 | MCP와 동등한 LLM 조회 인터페이스 | MCP 미지원 환경에서 bash Tool Use로 동일한 조회 경험 제공 |
+| CLI 언어 | Python + Typer | 백엔드와 동일 언어, PyPI 배포 용이, AI 환경 친화적 |
+| 어뷰징 신고 방식 | 외부 서비스가 신고 API 호출 | 게이트웨이 단순 유지, 신고 품질은 외부 서비스 로그인으로 보장 |
+
+---
+
+*본 문서는 기획 단계의 계획서이며, 구현 진행에 따라 업데이트됩니다.*

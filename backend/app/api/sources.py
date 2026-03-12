@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_session
+from app.db.models import Source
+from app.schemas.source import SourceCreate, SourceListResponse, SourceResponse
+from app.services.ingest import ingest_source_bundle
+from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
+
+router = APIRouter(prefix="/sources", tags=["sources"])
+
+
+def _to_source_response(source: Source) -> SourceResponse:
+    return SourceResponse(
+        id=source.id,
+        rss_url=source.rss_url,
+        site_url=source.site_url,
+        title=source.title,
+        description=source.description,
+        favicon_url=source.favicon_url,
+        language=source.language,
+        category=source.category,
+        tags=source.tags.split(",") if source.tags else [],
+        status=source.status,
+        registered_by=source.registered_by,
+        registered_at=source.registered_at,
+        last_fetched_at=source.last_fetched_at,
+        last_published_at=source.last_published_at,
+    )
+
+
+@router.get(
+    "",
+    response_model=SourceListResponse,
+    summary="List sources",
+    description="List active sources with optional keyword, language, category, and tag filters.",
+)
+def list_sources(
+    keyword: str | None = None,
+    language: str | None = None,
+    category: str | None = None,
+    tag: str | None = None,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_session),
+) -> SourceListResponse:
+    query = select(Source).where(Source.status == "active")
+    count_query = select(func.count()).select_from(Source).where(Source.status == "active")
+
+    if keyword:
+        pattern = f"%{keyword}%"
+        query = query.where(Source.title.ilike(pattern))
+        count_query = count_query.where(Source.title.ilike(pattern))
+    if language:
+        query = query.where(Source.language == language)
+        count_query = count_query.where(Source.language == language)
+    if category:
+        query = query.where(Source.category == category)
+        count_query = count_query.where(Source.category == category)
+    if tag:
+        pattern = f"%{tag}%"
+        query = query.where(Source.tags.ilike(pattern))
+        count_query = count_query.where(Source.tags.ilike(pattern))
+
+    total = db.scalar(count_query) or 0
+    query = query.order_by(Source.last_published_at.desc(), Source.registered_at.desc())
+    query = query.offset((page - 1) * limit).limit(limit)
+    sources = db.scalars(query).all()
+
+    return SourceListResponse(
+        items=[_to_source_response(source) for source in sources],
+        page=page,
+        limit=limit,
+        total=total,
+    )
+
+
+@router.post(
+    "",
+    response_model=SourceResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a source",
+    description="Register a new source from the web frontend. The server validates the feed, extracts metadata, and ingests the initial feed entries.",
+    responses={
+        400: {"description": "Invalid or unreachable RSS URL"},
+        409: {"description": "Duplicate RSS URL"},
+    },
+)
+async def create_source(payload: SourceCreate, db: Session = Depends(get_session)) -> SourceResponse:
+    try:
+        bundle = await fetch_feed_bundle(str(payload.rss_url))
+    except InvalidRSSUrlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_rss_url", "message": str(exc)},
+        ) from exc
+
+    metadata = bundle["metadata"]
+
+    source = Source(
+        rss_url=metadata["rss_url"],
+        site_url=metadata["site_url"] or "",
+        title=metadata["title"] or "",
+        description=metadata["description"],
+        favicon_url=metadata["favicon_url"],
+        language=payload.language,
+        category=payload.category,
+        tags=",".join(payload.tags),
+        status="active",
+        feed_format=metadata["feed_format"],
+        registered_by="web",
+    )
+    db.add(source)
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
+        ) from exc
+
+    ingest_source_bundle(
+        db=db,
+        source=source,
+        metadata=metadata,
+        entries=bundle["entries"],
+    )
+    db.commit()
+    db.refresh(source)
+    return _to_source_response(source)
+
+
+@router.get(
+    "/{source_id}",
+    response_model=SourceResponse,
+    summary="Get source",
+    description="Return a single active source by id.",
+    responses={404: {"description": "Source not found"}},
+)
+def get_source(source_id: str, db: Session = Depends(get_session)) -> SourceResponse:
+    source = db.get(Source, source_id)
+    if not source or source.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "source_not_found", "message": "Source not found."},
+        )
+    return _to_source_response(source)
