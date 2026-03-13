@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowUpDown, Check, ChevronDown, Database, Filter, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, Database, Filter, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { FilterDropdown } from "@/components/filter-dropdown";
 import { SourceCard } from "@/components/source-card";
 import { SourceRegisterDialog } from "@/components/source-register-dialog";
 import { Button } from "@/components/ui/button";
@@ -21,84 +22,6 @@ import {
 } from "@/lib/source-metadata";
 
 type SortKey = "registered_desc" | "published_desc" | "title_asc";
-
-function FilterDropdown<T extends string>({
-  value,
-  onChange,
-  options,
-  icon,
-  placeholder,
-  className,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: Array<{ value: T; label: string }>;
-  icon: React.ReactNode;
-  placeholder: string;
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
-
-  const selected = options.find((option) => option.value === value);
-
-  return (
-    <div ref={rootRef} className={className}>
-      <button
-        type="button"
-        className="flex h-12 w-full items-center justify-between bg-transparent px-3 text-left text-sm text-foreground"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          {icon}
-          <span className="truncate">{selected?.label ?? placeholder}</span>
-        </span>
-        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-      </button>
-
-      {open ? (
-        <div className="absolute left-0 top-full z-20 mt-px w-full border border-border bg-background shadow-none">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className="flex h-11 w-full items-center justify-between border-b border-border px-3 text-left text-sm text-foreground last:border-b-0 hover:bg-muted/40"
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-            >
-              <span>{option.label}</span>
-              {option.value === value ? <Check className="h-4 w-4" /> : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function SourcesSection({ id, sources }: { id?: string; sources: Source[] }) {
   const [query, setQuery] = useState("");

@@ -1,16 +1,16 @@
 "use client";
 
+import { Filter } from "lucide-react";
 import { useState } from "react";
 
+import { FilterDropdown } from "@/components/filter-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSource, type Source } from "@/lib/api";
 import {
   LANGUAGE_OPTIONS,
-  SOURCE_CATEGORY_LABELS,
   SOURCE_CATEGORY_OPTIONS,
   SOURCE_LIMITS,
-  SOURCE_TAG_LABELS,
   SOURCE_TAG_OPTIONS,
   SOURCE_TYPE_OPTIONS,
   type LanguageCode,
@@ -97,35 +97,29 @@ export function SourceRegisterForm() {
           />
           <label className="space-y-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Language</span>
-            <select
-              className="h-12 w-full rounded-none border border-border/80 bg-background px-3 text-sm shadow-none outline-none"
+            <FilterDropdown
               value={form.language}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, language: event.target.value as LanguageCode | "" }))
-              }
-            >
-              <option value="">Select language</option>
-              {LANGUAGE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setForm((current) => ({ ...current, language: value as LanguageCode | "" }))}
+              options={[{ value: "", label: "Select language" }, ...LANGUAGE_OPTIONS]}
+              placeholder="Select language"
+              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+              className="relative"
+              buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
+              menuClassName="absolute left-0 top-full z-20 mt-px w-full border border-border bg-background shadow-none"
+            />
           </label>
           <label className="space-y-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Type</span>
-            <select
-              className="h-12 w-full rounded-none border border-border/80 bg-background px-3 text-sm shadow-none outline-none"
+            <FilterDropdown
               value={form.type}
-              onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as SourceType | "" }))}
-            >
-              <option value="">Select type</option>
-              {SOURCE_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setForm((current) => ({ ...current, type: value as SourceType | "" }))}
+              options={[{ value: "", label: "Select type" }, ...SOURCE_TYPE_OPTIONS]}
+              placeholder="Select type"
+              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+              className="relative"
+              buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
+              menuClassName="absolute left-0 top-full z-20 mt-px w-full border border-border bg-background shadow-none"
+            />
           </label>
           <div className="space-y-2 md:col-span-2">
             <div className="flex items-center justify-between gap-3">
@@ -198,14 +192,6 @@ export function SourceRegisterForm() {
           </Button>
         </div>
       </form>
-      {form.categories.length > 0 ? (
-        <div className="text-sm text-muted-foreground">
-          Categories: {form.categories.map((value) => SOURCE_CATEGORY_LABELS[value]).join(", ")}
-        </div>
-      ) : null}
-      {form.tags.length > 0 ? (
-        <div className="text-sm text-muted-foreground">Tags: {form.tags.map((value) => SOURCE_TAG_LABELS[value]).join(", ")}</div>
-      ) : null}
       {createdSource ? (
         <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
