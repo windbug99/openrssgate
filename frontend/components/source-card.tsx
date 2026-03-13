@@ -29,12 +29,12 @@ export function SourceCard({ source, className }: { source: Source; className?: 
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-border/70 bg-muted/40">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-muted/40">
                 {source.favicon_url ? (
                   <img
                     src={source.favicon_url}
                     alt=""
-                    className="h-full w-full object-cover"
+                    className="h-full w-full rounded-full object-cover"
                     loading="lazy"
                     referrerPolicy="no-referrer"
                   />
@@ -61,7 +61,7 @@ export function SourceCard({ source, className }: { source: Source; className?: 
           </div>
         </div>
 
-        <p className="line-clamp-2 text-sm leading-7 text-muted-foreground">
+        <p className="truncate text-sm leading-7 text-muted-foreground">
           {source.description ?? "No description was provided by the feed."}
         </p>
       </div>
