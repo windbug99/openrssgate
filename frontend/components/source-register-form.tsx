@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { createSource, type Source } from "@/lib/api";
 
@@ -59,53 +58,52 @@ export function SourceRegisterForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Anonymous Source Registration</CardTitle>
-        <CardDescription>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-[0.95rem] leading-7 text-muted-foreground">
           RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input
-              className="md:col-span-2"
+        </p>
+      </div>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input
+            className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:col-span-2"
             placeholder="https://blog.example.com/rss.xml"
             value={form.rss_url}
             onChange={(event) => setForm((current) => ({ ...current, rss_url: event.target.value }))}
             required
           />
-            <Input
+          <Input
+            className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             placeholder="language: ko"
             value={form.language}
             onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
           />
-            <Input
+          <Input
+            className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             placeholder="category: blog"
             value={form.category}
             onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
           />
-            <Input
-              className="md:col-span-2"
+          <Input
+            className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:col-span-2"
             placeholder="tags: AI, tech, semiconductor"
             value={form.tags}
             onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
           />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={saving}>
-              {saving ? "Registering..." : "Register Source"}
-            </Button>
-          </div>
-        </form>
-        {createdSource ? (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
-          </div>
-        ) : null}
-        {error ? <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-      </CardContent>
-    </Card>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" disabled={saving} className="h-12 rounded-none px-6">
+            {saving ? "Registering..." : "Register Source"}
+          </Button>
+        </div>
+      </form>
+      {createdSource ? (
+        <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
+          <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
+        </div>
+      ) : null}
+      {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
+    </div>
   );
 }

@@ -21,15 +21,15 @@ export function SourceCard({ source, className }: { source: Source; className?: 
   return (
     <article
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_92px] gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_112px] md:px-5",
+        "grid grid-cols-[minmax(0,1fr)_96px] gap-0 px-4 py-3 md:grid-cols-[minmax(0,1fr)_124px] md:px-5",
         className,
       )}
     >
-      <div className="space-y-2">
+      <div className="space-y-2 pr-4 md:pr-5">
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/40">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-border/70 bg-muted/40">
                 {source.favicon_url ? (
                   <img
                     src={source.favicon_url}
@@ -66,13 +66,13 @@ export function SourceCard({ source, className }: { source: Source; className?: 
         </p>
       </div>
 
-      <div className="flex items-center justify-end gap-2 self-center">
-        <Button asChild variant="outline" className="h-11 w-11 rounded-xl px-0">
+      <div className="flex items-center justify-end gap-2 self-center border-l border-border/80 pl-4 md:pl-5">
+        <Button asChild variant="outline" className="h-11 w-11 rounded-none px-0">
           <a href={source.site_url} target="_blank" rel="noreferrer" aria-label={`${source.title} source URL`}>
             <Globe className="h-4 w-4" />
           </a>
         </Button>
-        <Button asChild variant="outline" className="h-11 w-11 rounded-xl px-0">
+        <Button asChild variant="outline" className="h-11 w-11 rounded-none px-0">
           <a href={source.rss_url} target="_blank" rel="noreferrer" aria-label={`${source.title} RSS URL`}>
             <Rss className="h-4 w-4" />
           </a>

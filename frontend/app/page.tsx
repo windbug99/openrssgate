@@ -29,65 +29,55 @@ export default async function HomePage() {
 
   return (
     <SiteShell>
-      <section id="home" className="scroll-mt-24 pt-2">
-        <div className="hero-pattern-shell relative overflow-hidden rounded-[2rem] border border-border/70 bg-background text-center">
-          <div className="hero-pattern-grid pointer-events-none absolute inset-0 opacity-80" />
-          <div className="hero-pattern-radial pointer-events-none absolute inset-x-[8%] bottom-0 h-[62%]" />
-          <div className="hero-pattern-glow pointer-events-none absolute inset-x-[20%] bottom-[12%] h-[32%]" />
-          <div className="hero-pattern-prism pointer-events-none absolute left-1/2 top-[56%] h-[220px] w-[220px] -translate-x-1/2" />
+      <section id="home" className="scroll-mt-24">
+        <div className="bg-background px-6 py-14 text-center md:px-10 md:py-14">
+          <div className="flex justify-center">
+            <Badge variant="outline" className="rounded-sm px-4 py-2 text-[13px] font-medium tracking-normal">
+              <Rss className="mr-2 h-3.5 w-3.5" />
+              Last fetched: {formatDateTime(latestFetchedAt)} · {sources.total} public sources
+            </Badge>
+          </div>
 
-          <div className="relative space-y-8 px-6 py-14 md:px-10 md:py-16">
-            <div className="flex justify-center">
-              <Badge
-                variant="outline"
-                className="rounded-full bg-background/88 px-4 py-2 text-[13px] font-medium tracking-normal backdrop-blur-sm"
-              >
-                <Rss className="mr-2 h-3.5 w-3.5" />
-                Last fetched: {formatDateTime(latestFetchedAt)} · {sources.total} public sources
-              </Badge>
-            </div>
+          <div className="mx-auto mt-8 flex max-w-[900px] flex-col items-center space-y-5">
+            <h2 className="max-w-[780px] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground">
+              RSS isn't dead. It's just scattered.
+            </h2>
+            <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
+              Feeds are fragmented. Platforms decide what gets read.
+              <br />
+              The independent blogs, the honest opinions, the writing that matters —
+              <br />
+              buried under noise, invisible to algorithms.
+            </p>
+            <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
+              OpenRSSGate is a shared public index for RSS sources.
+              <br />
+              Register once. Collected continuously. Accessible to everyone —
+              <br />
+              browsers, apps, terminal workflows, and AI agents
+              <br />
+              through REST, MCP, and CLI.
+            </p>
+            <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
+              Write anywhere. Be found everywhere.
+            </p>
+          </div>
 
-            <div className="mx-auto flex max-w-[900px] flex-col items-center space-y-5">
-              <h2 className="max-w-[780px] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground">
-                RSS isn't dead. It's just scattered.
-              </h2>
-              <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
-                Feeds are fragmented. Platforms decide what gets read.
-                <br />
-                The independent blogs, the honest opinions, the writing that matters —
-                <br />
-                buried under noise, invisible to algorithms.
-              </p>
-              <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
-                OpenRSSGate is a shared public index for RSS sources.
-                <br />
-                Register once. Collected continuously. Accessible to everyone —
-                <br />
-                browsers, apps, terminal workflows, and AI agents
-                <br />
-                through REST, MCP, and CLI.
-              </p>
-              <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
-                Write anywhere. Be found everywhere.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-3">
-              <Button asChild size="lg">
-                <a href="#sources">
-                  Browse sources
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <a href="#docs">Read interface docs</a>
-              </Button>
-            </div>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button asChild size="lg">
+              <a href="#sources">
+                Browse sources
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <a href="#docs">Read interface docs</a>
+            </Button>
           </div>
         </div>
       </section>
 
-      <div className="mt-20 space-y-20">
+      <div className="space-y-20 px-6 md:px-10">
         <DocsSection id="docs" />
         <SourcesSection id="sources" sources={sources.items} />
       </div>
