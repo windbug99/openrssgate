@@ -86,6 +86,12 @@ export function SourceRegisterForm() {
           Register the RSS URL and classify the source with controlled options for language, type, categories, and tags.
         </p>
       </div>
+      {createdSource ? (
+        <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
+          <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
+        </div>
+      ) : null}
+      {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-2">
           <Input
@@ -192,12 +198,6 @@ export function SourceRegisterForm() {
           </Button>
         </div>
       </form>
-      {createdSource ? (
-        <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
-          <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
-        </div>
-      ) : null}
-      {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
     </div>
   );
 }
