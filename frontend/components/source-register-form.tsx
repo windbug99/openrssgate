@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Input } from "@heroui/react";
 
 import { createSource, type Source } from "@/lib/api";
 
@@ -25,7 +24,7 @@ function getStatusMessage(source: Source): string {
   return `${source.title} has been registered and is awaiting review.`;
 }
 
-function SourceRegisterFormInner() {
+export function SourceRegisterForm() {
   const [form, setForm] = useState(initialState);
   const [saving, setSaving] = useState(false);
   const [createdSource, setCreatedSource] = useState<Source | null>(null);
@@ -57,69 +56,51 @@ function SourceRegisterFormInner() {
   }
 
   return (
-    <>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">Anonymous Source Registration</h2>
-        <p className="text-default-500">
-          RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
-        </p>
-      </div>
+    <div className="card panel">
+      <h2>Anonymous Source Registration</h2>
+      <p className="muted">
+        RSS URL only. The server validates the feed, fetches metadata, and stores the first batch of feed entries.
+      </p>
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <Input
-            className="form-grid-full"
-            aria-label="RSS URL"
+          <input
+            className="field field-wide"
             placeholder="https://blog.example.com/rss.xml"
             value={form.rss_url}
             onChange={(event) => setForm((current) => ({ ...current, rss_url: event.target.value }))}
             required
           />
-          <Input
-            aria-label="Language"
-            placeholder="ko"
+          <input
+            className="field"
+            placeholder="language: ko"
             value={form.language}
             onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
           />
-          <Input
-            aria-label="Category"
-            placeholder="blog"
+          <input
+            className="field"
+            placeholder="category: blog"
             value={form.category}
             onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
           />
-          <Input
-            className="form-grid-full"
-            aria-label="Tags"
-            placeholder="AI, tech, semiconductor"
+          <input
+            className="field field-wide"
+            placeholder="tags: AI, tech, semiconductor"
             value={form.tags}
             onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
           />
         </div>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button variant="primary" type="submit" isDisabled={saving}>
+        <div style={{ marginTop: 14, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button className="button" type="submit" disabled={saving}>
             {saving ? "Registering..." : "Register Source"}
-          </Button>
+          </button>
         </div>
       </form>
       {createdSource ? (
-        <div className="rounded-large bg-success-50 px-4 py-3 text-sm text-success-700">
+        <div className="status ok">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
-      {error ? <div className="rounded-large bg-danger-50 px-4 py-3 text-sm text-danger-700">{error}</div> : null}
-    </>
-  );
-}
-
-export function SourceRegisterForm({ embedded = false }: { embedded?: boolean }) {
-  if (embedded) {
-    return <SourceRegisterFormInner />;
-  }
-
-  return (
-    <Card>
-      <Card.Content className="gap-5 p-8">
-        <SourceRegisterFormInner />
-      </Card.Content>
-    </Card>
+      {error ? <div className="status error">{error}</div> : null}
+    </div>
   );
 }
