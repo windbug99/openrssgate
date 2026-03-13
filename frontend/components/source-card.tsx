@@ -7,10 +7,14 @@ import type { Source } from "@/lib/api";
 
 function formatDate(value: string | null): string {
   if (!value) return "Not collected yet";
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}.${month}.${day} ${hours}:${minutes}`;
 }
 
 export function SourceCard({ source }: { source: Source }) {
@@ -35,7 +39,6 @@ export function SourceCard({ source }: { source: Source }) {
           </div>
 
           <div className="grid content-center gap-1 text-[11px] leading-5 text-muted-foreground md:text-xs">
-            <span className="whitespace-nowrap">Last fetched: {formatDate(source.last_fetched_at)}</span>
             <span className="whitespace-nowrap">Last published: {formatDate(source.last_published_at)}</span>
           </div>
 

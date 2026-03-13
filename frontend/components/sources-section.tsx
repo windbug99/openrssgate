@@ -4,15 +4,16 @@ import { ArrowUpDown, Database, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { SourceCard } from "@/components/source-card";
+import { SourceRegisterDialog } from "@/components/source-register-dialog";
 import { Input } from "@/components/ui/input";
 import type { Source } from "@/lib/api";
 
-type SortKey = "registered_desc" | "fetched_desc" | "title_asc";
+type SortKey = "registered_desc" | "published_desc" | "title_asc";
 
 export function SourcesSection({ id, sources }: { id?: string; sources: Source[] }) {
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("fetched_desc");
+  const [sortKey, setSortKey] = useState<SortKey>("published_desc");
 
   const languages = useMemo(() => {
     return Array.from(new Set(sources.map((source) => source.language).filter(Boolean))) as string[];
@@ -38,7 +39,7 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
       if (sortKey === "registered_desc") {
         return new Date(right.registered_at).getTime() - new Date(left.registered_at).getTime();
       }
-      return new Date(right.last_fetched_at ?? 0).getTime() - new Date(left.last_fetched_at ?? 0).getTime();
+      return new Date(right.last_published_at ?? 0).getTime() - new Date(left.last_published_at ?? 0).getTime();
     });
 
     return ranked;
@@ -62,7 +63,7 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-border/70 bg-card/50 p-4 md:grid-cols-[minmax(0,1.6fr)_220px_220px]">
+      <div className="grid gap-3 rounded-xl border border-border/70 bg-card/50 p-4 md:grid-cols-[minmax(0,1.5fr)_220px_220px_auto]">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -96,11 +97,15 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
             value={sortKey}
             onChange={(event) => setSortKey(event.target.value as SortKey)}
           >
-            <option value="fetched_desc">Recently fetched</option>
+            <option value="published_desc">Recently published</option>
             <option value="registered_desc">Recently registered</option>
             <option value="title_asc">Title A-Z</option>
           </select>
         </label>
+
+        <div className="flex md:justify-end">
+          <SourceRegisterDialog />
+        </div>
       </div>
 
       <div className="grid gap-3">
