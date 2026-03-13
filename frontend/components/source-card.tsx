@@ -1,8 +1,8 @@
+import { cn } from "@/lib/utils";
 import { Globe, Rss } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Source } from "@/lib/api";
 
 function formatDate(value: string | null): string {
@@ -17,14 +17,35 @@ function formatDate(value: string | null): string {
   return `${year}.${month}.${day} ${hours}:${minutes}`;
 }
 
-export function SourceCard({ source }: { source: Source }) {
+export function SourceCard({ source, className }: { source: Source; className?: string }) {
   return (
-    <Card className="border-border/80 bg-card/70 shadow-none">
-      <CardContent className="p-0">
-        <article className="grid grid-cols-[minmax(0,1fr)_170px_96px] gap-4 px-4 py-3 md:px-5">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-base font-semibold tracking-tight md:text-lg">{source.title}</h3>
+    <article
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_92px] gap-4 px-5 py-4 md:grid-cols-[minmax(0,1fr)_112px] md:px-6",
+        className,
+      )}
+    >
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/40">
+                {source.favicon_url ? (
+                  <img
+                    src={source.favicon_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="text-[11px] font-semibold uppercase text-muted-foreground">
+                    {source.title.slice(0, 1)}
+                  </span>
+                )}
+              </div>
+
+              <h3 className="truncate text-base font-semibold tracking-tight md:text-lg">{source.title}</h3>
               {source.language ? <Badge>{source.language}</Badge> : null}
               {source.category ? <Badge variant="outline">{source.category}</Badge> : null}
               {source.tags.map((tag) => (
@@ -33,29 +54,30 @@ export function SourceCard({ source }: { source: Source }) {
                 </Badge>
               ))}
             </div>
-            <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
-              {source.description ?? "No description was provided by the feed."}
-            </p>
           </div>
 
-          <div className="grid content-center gap-1 text-[11px] leading-5 text-muted-foreground md:text-xs">
-            <span className="whitespace-nowrap">Last published: {formatDate(source.last_published_at)}</span>
+          <div className="shrink-0 pt-1 text-right text-[12px] leading-5 text-muted-foreground md:text-[13px]">
+            <span className="whitespace-nowrap">{formatDate(source.last_published_at)}</span>
           </div>
+        </div>
 
-          <div className="flex items-center justify-end gap-2">
-            <Button asChild size="sm" variant="outline">
-              <a href={source.site_url} target="_blank" rel="noreferrer" aria-label={`${source.title} source URL`}>
-                <Globe className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <a href={source.rss_url} target="_blank" rel="noreferrer" aria-label={`${source.title} RSS URL`}>
-                <Rss className="h-4 w-4" />
-              </a>
-            </Button>
-          </div>
-        </article>
-      </CardContent>
-    </Card>
+        <p className="line-clamp-2 text-sm leading-7 text-muted-foreground">
+          {source.description ?? "No description was provided by the feed."}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 self-center">
+        <Button asChild variant="outline" className="h-11 w-11 rounded-xl px-0">
+          <a href={source.site_url} target="_blank" rel="noreferrer" aria-label={`${source.title} source URL`}>
+            <Globe className="h-4 w-4" />
+          </a>
+        </Button>
+        <Button asChild variant="outline" className="h-11 w-11 rounded-xl px-0">
+          <a href={source.rss_url} target="_blank" rel="noreferrer" aria-label={`${source.title} RSS URL`}>
+            <Rss className="h-4 w-4" />
+          </a>
+        </Button>
+      </div>
+    </article>
   );
 }

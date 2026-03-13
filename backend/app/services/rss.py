@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 from datetime import UTC, datetime
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import feedparser
 import httpx
@@ -106,15 +106,56 @@ def _parse_feed_document(document: str) -> feedparser.FeedParserDict:
     return parsed_feed
 
 
+def _normalize_http_url(base_url: str, candidate: object | None) -> str | None:
+    if not candidate:
+        return None
+
+    value = str(candidate).strip()
+    if not value:
+        return None
+
+    absolute = urljoin(base_url, value)
+    parsed = urlparse(absolute)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return absolute
+
+
+def _extract_favicon_url(feed: feedparser.FeedParserDict, site_url: str) -> str | None:
+    candidates: list[object | None] = [
+        feed.get("icon"),
+        feed.get("logo"),
+    ]
+
+    image = feed.get("image")
+    if isinstance(image, dict):
+        candidates.extend([image.get("href"), image.get("url")])
+
+    for link in feed.get("links", []):
+        if not isinstance(link, dict):
+            continue
+        rel = str(link.get("rel") or "").lower()
+        if rel in {"icon", "shortcut icon", "apple-touch-icon"}:
+            candidates.append(link.get("href"))
+
+    for candidate in candidates:
+        normalized = _normalize_http_url(site_url, candidate)
+        if normalized:
+            return normalized
+
+    return _normalize_http_url(site_url, "/favicon.ico")
+
+
 def _extract_metadata(rss_url: str, parsed_feed: feedparser.FeedParserDict) -> dict[str, str | None]:
     feed = parsed_feed.feed
     title = feed.get("title")
     link = feed.get("link")
     description = feed.get("subtitle") or feed.get("description")
-    favicon_url = None
 
     if not title or not link:
         raise InvalidRSSUrlError("The feed metadata is incomplete.")
+
+    favicon_url = _extract_favicon_url(feed, str(link))
 
     return {
         "rss_url": rss_url,

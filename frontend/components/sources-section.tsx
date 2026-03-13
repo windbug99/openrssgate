@@ -108,16 +108,21 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
         </div>
       </div>
 
-      <div className="grid gap-3">
-        {filteredSources.map((source) => (
-          <SourceCard key={source.id} source={source} />
-        ))}
-        {filteredSources.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-card/40 px-5 py-10 text-center text-sm text-muted-foreground">
-            No sources matched the current search and filter combination.
-          </div>
-        ) : null}
-      </div>
+      {filteredSources.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-card/40 px-5 py-10 text-center text-sm text-muted-foreground">
+          No sources matched the current search and filter combination.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/50">
+          {filteredSources.map((source, index) => (
+            <SourceCard
+              key={source.id}
+              source={source}
+              className={index > 0 ? "border-t border-border/70" : undefined}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
