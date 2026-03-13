@@ -21,15 +21,15 @@ export function SourceCard({ source, className }: { source: Source; className?: 
   return (
     <article
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_92px] gap-4 px-5 py-4 md:grid-cols-[minmax(0,1fr)_112px] md:px-6",
+        "grid grid-cols-[minmax(0,1fr)_92px] gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_112px] md:px-5",
         className,
       )}
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/40">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/40">
                 {source.favicon_url ? (
                   <img
                     src={source.favicon_url}
