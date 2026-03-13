@@ -12,13 +12,13 @@ export function SiteShell({ children }: { children: ReactNode }) {
         </Link>
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/">Home</Link>
+            <a href="#home">Home</a>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link href="/explore">Explore</Link>
+            <a href="#docs">Docs</a>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link href="/docs">Docs</Link>
+            <a href="#sources">Sources</a>
           </Button>
         </nav>
       </header>

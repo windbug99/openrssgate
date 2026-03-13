@@ -1,7 +1,9 @@
-import type { Source } from "@/lib/api";
+import { Globe, Rss } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import type { Source } from "@/lib/api";
 
 function formatDate(value: string | null): string {
   if (!value) return "Not collected yet";
@@ -13,33 +15,43 @@ function formatDate(value: string | null): string {
 
 export function SourceCard({ source }: { source: Source }) {
   return (
-    <Card className="h-full">
-      <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <CardTitle className="text-xl">{source.title}</CardTitle>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {source.description ?? "No description was provided by the feed."}
-          </p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <a href={source.site_url} target="_blank" rel="noreferrer">
-            Visit
-          </a>
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {source.language ? <Badge>{source.language}</Badge> : null}
-        {source.category ? <Badge>{source.category}</Badge> : null}
-        {source.tags.map((tag) => (
-          <Badge key={tag} variant="outline">{tag}</Badge>
-        ))}
-      </div>
-      <div className="grid gap-1 text-xs text-muted-foreground">
-        <span>RSS: {source.rss_url}</span>
-        <span>Last fetched: {formatDate(source.last_fetched_at)}</span>
-        <span>Last published: {formatDate(source.last_published_at)}</span>
-      </div>
+    <Card className="border-border/80 bg-card/70">
+      <CardContent className="p-0">
+        <article className="grid grid-cols-[minmax(0,1fr)_180px_112px] gap-6 px-5 py-4 md:px-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-base font-semibold tracking-tight md:text-lg">{source.title}</h3>
+              {source.language ? <Badge>{source.language}</Badge> : null}
+              {source.category ? <Badge variant="outline">{source.category}</Badge> : null}
+              {source.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+            <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+              {source.description ?? "No description was provided by the feed."}
+            </p>
+          </div>
+
+          <div className="grid content-center gap-1 text-xs text-muted-foreground md:text-sm">
+            <span>Last fetched: {formatDate(source.last_fetched_at)}</span>
+            <span>Last published: {formatDate(source.last_published_at)}</span>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <Button asChild size="sm" variant="outline">
+              <a href={source.site_url} target="_blank" rel="noreferrer" aria-label={`${source.title} source URL`}>
+                <Globe className="h-4 w-4" />
+              </a>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <a href={source.rss_url} target="_blank" rel="noreferrer" aria-label={`${source.title} RSS URL`}>
+                <Rss className="h-4 w-4" />
+              </a>
+            </Button>
+          </div>
+        </article>
       </CardContent>
     </Card>
   );
