@@ -8,6 +8,17 @@ import { SourceRegisterDialog } from "@/components/source-register-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Source } from "@/lib/api";
+import {
+  LANGUAGE_LABELS,
+  LANGUAGE_OPTIONS,
+  SOURCE_CATEGORY_LABELS,
+  SOURCE_CATEGORY_OPTIONS,
+  SOURCE_TYPE_LABELS,
+  SOURCE_TYPE_OPTIONS,
+  type LanguageCode,
+  type SourceCategory,
+  type SourceType,
+} from "@/lib/source-metadata";
 
 type SortKey = "registered_desc" | "published_desc" | "title_asc";
 
@@ -91,19 +102,27 @@ function FilterDropdown<T extends string>({
 
 export function SourcesSection({ id, sources }: { id?: string; sources: Source[] }) {
   const [query, setQuery] = useState("");
-  const [language, setLanguage] = useState("all");
+  const [language, setLanguage] = useState<LanguageCode | "all">("all");
+  const [type, setType] = useState<SourceType | "all">("all");
+  const [category, setCategory] = useState<SourceCategory | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("published_desc");
 
-  const languages = useMemo(() => {
-    return Array.from(new Set(sources.map((source) => source.language).filter(Boolean))) as string[];
-  }, [sources]);
-
   const languageOptions = useMemo(
+    () => [{ value: "all", label: "All languages" }, ...LANGUAGE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))],
+    [],
+  );
+
+  const typeOptions = useMemo(
+    () => [{ value: "all", label: "All types" }, ...SOURCE_TYPE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))],
+    [],
+  );
+
+  const categoryOptions = useMemo(
     () => [
-      { value: "all", label: "All languages" },
-      ...languages.map((item) => ({ value: item, label: item })),
+      { value: "all", label: "All categories" },
+      ...SOURCE_CATEGORY_OPTIONS.map((item) => ({ value: item.value, label: item.label })),
     ],
-    [languages],
+    [],
   );
 
   const sortOptions: Array<{ value: SortKey; label: string }> = [
@@ -119,11 +138,16 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
         lowered.length === 0 ||
         source.title.toLowerCase().includes(lowered) ||
         (source.description ?? "").toLowerCase().includes(lowered) ||
-        source.tags.some((tag) => tag.toLowerCase().includes(lowered));
+        source.tags.some((tag) => tag.toLowerCase().includes(lowered)) ||
+        (source.language ? (LANGUAGE_LABELS[source.language] ?? source.language).toLowerCase().includes(lowered) : false) ||
+        (source.type ? (SOURCE_TYPE_LABELS[source.type] ?? source.type).toLowerCase().includes(lowered) : false) ||
+        source.categories.some((item) => (SOURCE_CATEGORY_LABELS[item] ?? item).toLowerCase().includes(lowered));
 
       const matchesLanguage = language === "all" || source.language === language;
+      const matchesType = type === "all" || source.type === type;
+      const matchesCategory = category === "all" || source.categories.includes(category);
 
-      return matchesQuery && matchesLanguage;
+      return matchesQuery && matchesLanguage && matchesType && matchesCategory;
     });
 
     const ranked = [...filtered];
@@ -136,7 +160,7 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
     });
 
     return ranked;
-  }, [language, query, sortKey, sources]);
+  }, [category, language, query, sortKey, sources, type]);
 
   return (
     <section id={id} className="-mx-6 scroll-mt-24 space-y-6 md:-mx-10">
@@ -157,7 +181,7 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
       </div>
 
       <div className="px-6 md:px-10">
-        <div className="grid gap-0 border border-border/80 bg-card/30 md:grid-cols-[minmax(0,1.5fr)_220px_220px_auto]">
+        <div className="grid gap-0 border border-border/80 bg-card/30 md:grid-cols-[minmax(0,1.4fr)_180px_180px_180px_220px_auto]">
           <label className="relative block border-b border-border/80 focus-within:outline focus-within:outline-1 focus-within:outline-border focus-within:outline-offset-[-1px] md:border-b-0 md:border-r">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -170,9 +194,27 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
 
           <FilterDropdown
             value={language}
-            onChange={setLanguage}
+            onChange={(value) => setLanguage(value as LanguageCode | "all")}
             options={languageOptions}
             placeholder="All languages"
+            icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+            className="relative border-b border-border/80 md:border-b-0 md:border-r"
+          />
+
+          <FilterDropdown
+            value={type}
+            onChange={(value) => setType(value as SourceType | "all")}
+            options={typeOptions}
+            placeholder="All types"
+            icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+            className="relative border-b border-border/80 md:border-b-0 md:border-r"
+          />
+
+          <FilterDropdown
+            value={category}
+            onChange={(value) => setCategory(value as SourceCategory | "all")}
+            options={categoryOptions}
+            placeholder="All categories"
             icon={<Filter className="h-4 w-4 text-muted-foreground" />}
             className="relative border-b border-border/80 md:border-b-0 md:border-r"
           />

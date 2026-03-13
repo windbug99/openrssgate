@@ -11,6 +11,7 @@ from app.api.deps import get_session
 from app.core.config import get_settings
 from app.db.models import Source
 from app.schemas.source import SourceCreate, SourceListResponse, SourceResponse
+from app.source_metadata import csv_contains, join_csv, parse_csv
 from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
 from app.services.review import review_source_bundle
@@ -41,12 +42,6 @@ def _validate_registration_payload(payload: SourceCreate) -> None:
             detail={"code": "invalid_language", "message": "Language must be at least 2 characters."},
         )
 
-    if payload.category and len(payload.category.strip()) < 2:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "invalid_category", "message": "Category must be at least 2 characters."},
-        )
-
 
 def _to_source_response(source: Source) -> SourceResponse:
     return SourceResponse(
@@ -57,8 +52,9 @@ def _to_source_response(source: Source) -> SourceResponse:
         description=source.description,
         favicon_url=source.favicon_url,
         language=source.language,
-        category=source.category,
-        tags=source.tags.split(",") if source.tags else [],
+        type=source.source_type,
+        categories=parse_csv(source.categories),
+        tags=parse_csv(source.tags),
         status=source.status,
         status_reason=source.status_reason,
         registered_by=source.registered_by,
@@ -72,11 +68,12 @@ def _to_source_response(source: Source) -> SourceResponse:
     "",
     response_model=SourceListResponse,
     summary="List sources",
-    description="List active sources with optional keyword, language, category, and tag filters.",
+    description="List active sources with optional keyword, language, type, category, and tag filters.",
 )
 def list_sources(
     keyword: str | None = None,
     language: str | None = None,
+    type: str | None = None,
     category: str | None = None,
     tag: str | None = None,
     page: int = Query(default=1, ge=1),
@@ -93,13 +90,15 @@ def list_sources(
     if language:
         query = query.where(Source.language == language)
         count_query = count_query.where(Source.language == language)
+    if type:
+        query = query.where(Source.source_type == type)
+        count_query = count_query.where(Source.source_type == type)
     if category:
-        query = query.where(Source.category == category)
-        count_query = count_query.where(Source.category == category)
+        query = query.where(csv_contains(Source.categories, category))
+        count_query = count_query.where(csv_contains(Source.categories, category))
     if tag:
-        pattern = f"%{tag}%"
-        query = query.where(Source.tags.ilike(pattern))
-        count_query = count_query.where(Source.tags.ilike(pattern))
+        query = query.where(csv_contains(Source.tags, tag))
+        count_query = count_query.where(csv_contains(Source.tags, tag))
 
     total = db.scalar(count_query) or 0
     query = query.order_by(Source.last_published_at.desc(), Source.registered_at.desc())
@@ -168,8 +167,9 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
         description=metadata["description"],
         favicon_url=metadata["favicon_url"],
         language=payload.language,
-        category=payload.category,
-        tags=",".join(payload.tags),
+        source_type=payload.type,
+        categories=join_csv(payload.categories),
+        tags=join_csv(payload.tags),
         status="pending_review",
         feed_format=metadata["feed_format"],
         registered_by="web",

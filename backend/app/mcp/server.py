@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
 from app.db.models import Feed, Source
+from app.source_metadata import csv_contains, parse_csv
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
@@ -31,8 +32,9 @@ def _serialize_source(source: Source) -> dict[str, Any]:
         "description": source.description,
         "favicon_url": source.favicon_url,
         "language": source.language,
-        "category": source.category,
-        "tags": source.tags.split(",") if source.tags else [],
+        "type": source.source_type,
+        "categories": parse_csv(source.categories),
+        "tags": parse_csv(source.tags),
         "status": source.status,
         "registered_by": source.registered_by,
         "registered_at": source.registered_at.isoformat() if source.registered_at else None,
@@ -81,12 +83,13 @@ def get_mcp_tool_manifest() -> dict[str, list[dict[str, Any]]]:
         "tools": [
             {
                 "name": "search_sources",
-                "description": "Search sources by keyword, language, category, or tag.",
+                "description": "Search sources by keyword, language, type, category, or tag.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
                         "keyword": {"type": "string"},
                         "language": {"type": "string"},
+                        "type": {"type": "string"},
                         "category": {"type": "string"},
                         "tag": {"type": "string"},
                         "page": {"type": "integer", "default": 1},
@@ -137,6 +140,7 @@ def get_mcp_tool_manifest() -> dict[str, list[dict[str, Any]]]:
 def _search_sources(db: Session, arguments: dict[str, Any]) -> dict[str, Any]:
     keyword = arguments.get("keyword")
     language = arguments.get("language")
+    source_type = arguments.get("type")
     category = arguments.get("category")
     tag = arguments.get("tag")
     page = max(int(arguments.get("page", 1)), 1)
@@ -152,13 +156,15 @@ def _search_sources(db: Session, arguments: dict[str, Any]) -> dict[str, Any]:
     if language:
         query = query.where(Source.language == language)
         count_query = count_query.where(Source.language == language)
+    if source_type:
+        query = query.where(Source.source_type == source_type)
+        count_query = count_query.where(Source.source_type == source_type)
     if category:
-        query = query.where(Source.category == category)
-        count_query = count_query.where(Source.category == category)
+        query = query.where(csv_contains(Source.categories, category))
+        count_query = count_query.where(csv_contains(Source.categories, category))
     if tag:
-        pattern = f"%{tag}%"
-        query = query.where(Source.tags.ilike(pattern))
-        count_query = count_query.where(Source.tags.ilike(pattern))
+        query = query.where(csv_contains(Source.tags, tag))
+        count_query = count_query.where(csv_contains(Source.tags, tag))
 
     total = db.scalar(count_query) or 0
     items = db.scalars(

@@ -14,7 +14,7 @@ class Source(Base):
     __table_args__ = (
         UniqueConstraint("rss_url", name="uq_sources_rss_url"),
         Index("ix_sources_status_last_fetched_at", "status", "last_fetched_at"),
-        Index("ix_sources_language_category", "language", "category"),
+        Index("ix_sources_language_type", "language", "type"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -24,7 +24,8 @@ class Source(Base):
     description: Mapped[str | None] = mapped_column(Text())
     favicon_url: Mapped[str | None] = mapped_column(String(2048))
     language: Mapped[str | None] = mapped_column(String(16))
-    category: Mapped[str | None] = mapped_column(String(32))
+    source_type: Mapped[str | None] = mapped_column("type", String(32))
+    categories: Mapped[str | None] = mapped_column(String(255))
     tags: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     status_reason: Mapped[str | None] = mapped_column(String(255))

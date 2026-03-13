@@ -126,8 +126,9 @@ def test_mcp_call_search_sources_endpoint() -> None:
             title="Example Source",
             description="desc",
             language="ko",
-            category="blog",
-            tags="AI,tech",
+            source_type="blog",
+            categories="tech,media",
+            tags="ai,analysis",
             status="active",
             registered_by="web",
         )
@@ -143,6 +144,8 @@ def test_mcp_call_search_sources_endpoint() -> None:
     assert payload["tool"] == "search_sources"
     assert payload["result"]["total"] == 1
     assert payload["result"]["items"][0]["title"] == "Example Source"
+    assert payload["result"]["items"][0]["type"] == "blog"
+    assert payload["result"]["items"][0]["categories"] == ["tech", "media"]
 
 
 def test_mcp_sse_endpoint_streams_manifest() -> None:

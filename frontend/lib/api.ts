@@ -1,3 +1,5 @@
+import type { LanguageCode, SourceCategory, SourceTag, SourceType } from "@/lib/source-metadata";
+
 export type Source = {
   id: string;
   rss_url: string;
@@ -5,9 +7,10 @@ export type Source = {
   title: string;
   description: string | null;
   favicon_url: string | null;
-  language: string | null;
-  category: string | null;
-  tags: string[];
+  language: LanguageCode | null;
+  type: SourceType | null;
+  categories: SourceCategory[];
+  tags: SourceTag[];
   status: string;
   registered_by: string;
   registered_at: string;
@@ -80,9 +83,10 @@ export async function listFeeds(params?: Record<string, string | undefined>): Pr
 
 export async function createSource(payload: {
   rss_url: string;
-  language?: string;
-  category?: string;
-  tags?: string[];
+  language?: LanguageCode;
+  type?: SourceType;
+  categories?: SourceCategory[];
+  tags?: SourceTag[];
 }): Promise<Source> {
   return request<Source>("/sources", {
     method: "POST",

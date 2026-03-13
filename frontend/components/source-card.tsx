@@ -4,6 +4,7 @@ import { Globe, Rss } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Source } from "@/lib/api";
+import { LANGUAGE_LABELS, SOURCE_CATEGORY_LABELS, SOURCE_TAG_LABELS, SOURCE_TYPE_LABELS } from "@/lib/source-metadata";
 
 function formatDate(value: string | null): string {
   if (!value) return "Not collected yet";
@@ -46,11 +47,16 @@ export function SourceCard({ source, className }: { source: Source; className?: 
               </div>
 
               <h3 className="truncate text-base font-semibold tracking-tight md:text-lg">{source.title}</h3>
-              {source.language ? <Badge>{source.language}</Badge> : null}
-              {source.category ? <Badge variant="outline">{source.category}</Badge> : null}
+              {source.language ? <Badge>{LANGUAGE_LABELS[source.language] ?? source.language}</Badge> : null}
+              {source.type ? <Badge variant="outline">{SOURCE_TYPE_LABELS[source.type] ?? source.type}</Badge> : null}
+              {source.categories.map((category) => (
+                <Badge key={category} variant="outline">
+                  {SOURCE_CATEGORY_LABELS[category] ?? category}
+                </Badge>
+              ))}
               {source.tags.map((tag) => (
                 <Badge key={tag} variant="secondary">
-                  {tag}
+                  {SOURCE_TAG_LABELS[tag] ?? tag}
                 </Badge>
               ))}
             </div>

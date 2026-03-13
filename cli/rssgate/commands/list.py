@@ -10,6 +10,7 @@ def register(app: typer.Typer) -> None:
     def list_sources(
         keyword: str | None = typer.Option(default=None),
         lang: str | None = typer.Option(None, "--lang"),
+        source_type: str | None = typer.Option(None, "--type"),
         category: str | None = typer.Option(default=None),
         tag: str | None = typer.Option(default=None),
         page: int = typer.Option(default=1, min=1),
@@ -20,6 +21,7 @@ def register(app: typer.Typer) -> None:
         payload = client.list_sources(
             keyword=keyword,
             language=lang,
+            type=source_type,
             category=category,
             tag=tag,
             page=page,
@@ -37,7 +39,10 @@ def register(app: typer.Typer) -> None:
 
         for item in items:
             tags = ", ".join(item.get("tags", [])) or "-"
-            typer.echo(f"{item['title']} [{item.get('language') or '-'} / {item.get('category') or '-'}]")
+            categories = ", ".join(item.get("categories", [])) or "-"
+            typer.echo(
+                f"{item['title']} [{item.get('language') or '-'} / {item.get('type') or '-'} / {categories}]"
+            )
             typer.echo(f"  id: {item['id']}")
             typer.echo(f"  site: {item['site_url']}")
             typer.echo(f"  rss: {item['rss_url']}")
