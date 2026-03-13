@@ -1,10 +1,9 @@
 "use client";
 
-import { ArrowUpDown, Filter, Search } from "lucide-react";
+import { ArrowUpDown, Database, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { SourceCard } from "@/components/source-card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { Source } from "@/lib/api";
 
@@ -47,17 +46,19 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
 
   return (
     <section id={id} className="scroll-mt-24 space-y-6">
-      <div className="space-y-3">
-        <p className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">Sources</p>
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Indexed sources</h2>
-            <p className="max-w-3xl text-base leading-7 text-muted-foreground">
-              Search the open source index, inspect metadata quality, and jump out to the original site or RSS feed in
-              one click.
-            </p>
-          </div>
-          <Badge variant="outline">{filteredSources.length} visible</Badge>
+      <div className="border-t border-border/70 pt-8">
+        <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          <Database className="h-4 w-4" />
+          <span>Sources</span>
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-[1.5rem] font-bold tracking-[-0.04em] text-foreground">
+            Indexed sources
+          </h2>
+          <p className="w-full text-[16px] leading-[1.9] text-muted-foreground">
+            Search the public source index, filter the current catalog, and jump directly to the source site or its
+            RSS URL from the same list view.
+          </p>
         </div>
       </div>
 

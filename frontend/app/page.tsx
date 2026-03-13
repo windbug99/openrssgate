@@ -1,71 +1,70 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Rss } from "lucide-react";
 
 import { DocsSection } from "@/components/docs-section";
 import { SiteShell } from "@/components/site-shell";
+import { Badge } from "@/components/ui/badge";
 import { SourcesSection } from "@/components/sources-section";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { listSources } from "@/lib/api";
+
+function formatDateTime(value: string | null): string {
+  if (!value) return "Not collected yet";
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 export default async function HomePage() {
   const sources = await listSources({ limit: "40" }).catch(() => ({ items: [], page: 1, limit: 40, total: 0 }));
+  const latestFetchedAt = sources.items.reduce<string | null>((latest, source) => {
+    if (!source.last_fetched_at) return latest;
+    if (!latest) return source.last_fetched_at;
+    return new Date(source.last_fetched_at).getTime() > new Date(latest).getTime() ? source.last_fetched_at : latest;
+  }, null);
 
   return (
     <SiteShell>
-      <section
-        id="home"
-        className="scroll-mt-24 space-y-8 border-b border-border/70 pb-12 md:grid md:grid-cols-[minmax(0,1.2fr)_320px] md:gap-8 md:space-y-0"
-      >
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <span className="inline-flex rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              open rss index
-            </span>
-            <div className="space-y-5">
-              <h1 className="max-w-4xl text-4xl font-semibold tracking-tight md:text-6xl">
-                OpenRSSGate makes public RSS infrastructure usable again.
-              </h1>
-              <p className="max-w-3xl text-lg leading-8 text-muted-foreground">
-                OpenRSSGate is an open index for public RSS and Atom sources. It is designed for people who want a
-                clean discovery surface and for agents that need a stable gateway for search, retrieval, and feed
-                metadata access.
-              </p>
-              <p className="max-w-3xl text-base leading-7 text-muted-foreground">
-                Instead of building another reader, the project focuses on a shared source layer: register feeds once,
-                collect them continuously, and expose the same index through the web, REST API, MCP, and CLI.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <a href="#sources">
-                Browse sources
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button asChild variant="outline">
-              <a href="#docs">Read interface docs</a>
-            </Button>
-          </div>
+      <section id="home" className="scroll-mt-24 space-y-8 pt-2 text-center">
+        <div className="flex justify-center">
+          <Badge
+            variant="outline"
+            className="rounded-full px-4 py-2 text-[13px] font-medium tracking-normal"
+          >
+            <Rss className="mr-2 h-3.5 w-3.5" />
+            Last fetched: {formatDateTime(latestFetchedAt)} · {sources.total} public sources
+          </Badge>
         </div>
 
-        <Card className="border-border/70 bg-card/60">
-          <CardContent className="space-y-5 p-6">
-            <div className="space-y-1">
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">Current index</p>
-              <h2 className="text-2xl font-semibold tracking-tight">{sources.total} public sources</h2>
-            </div>
-            <div className="space-y-3 text-sm leading-6 text-muted-foreground">
-              <p>Anonymous web registration with automatic review rules.</p>
-              <p>Read-only REST API, remote MCP surface, and terminal CLI access.</p>
-              <p>Source quality checks for stale feeds, duplicate sites, sparse metadata, and spam-like titles.</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mx-auto flex max-w-[900px] flex-col items-center space-y-5">
+          <h2 className="max-w-[780px] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground">
+            OpenRSSGate makes public RSS infrastructure usable again.
+          </h2>
+          <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
+            OpenRSSGate is a public source index for RSS and Atom feeds. It keeps source discovery, collection, and
+            metadata access available through one shared gateway instead of scattering the same work across separate
+            readers and custom scripts.
+          </p>
+          <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
+            Register feeds once, collect them continuously, and expose the same index to browsers, applications,
+            terminal workflows, and agent runtimes through REST, MCP, and CLI interfaces.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button asChild size="lg">
+            <a href="#sources">
+              Browse sources
+              <ArrowRight className="h-4 w-4" />
+            </a>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <a href="#docs">Read interface docs</a>
+          </Button>
+        </div>
       </section>
 
-      <div className="mt-12 space-y-16">
+      <div className="mt-20 space-y-20">
         <DocsSection id="docs" />
         <SourcesSection id="sources" sources={sources.items} />
       </div>

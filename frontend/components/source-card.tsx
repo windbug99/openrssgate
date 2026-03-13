@@ -15,9 +15,9 @@ function formatDate(value: string | null): string {
 
 export function SourceCard({ source }: { source: Source }) {
   return (
-    <Card className="border-border/80 bg-card/70">
+    <Card className="border-border/80 bg-card/70 shadow-none">
       <CardContent className="p-0">
-        <article className="grid grid-cols-[minmax(0,1fr)_180px_112px] gap-6 px-5 py-4 md:px-6">
+        <article className="grid grid-cols-[minmax(0,1fr)_170px_96px] gap-4 px-4 py-3 md:px-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-base font-semibold tracking-tight md:text-lg">{source.title}</h3>
@@ -34,9 +34,9 @@ export function SourceCard({ source }: { source: Source }) {
             </p>
           </div>
 
-          <div className="grid content-center gap-1 text-xs text-muted-foreground md:text-sm">
-            <span>Last fetched: {formatDate(source.last_fetched_at)}</span>
-            <span>Last published: {formatDate(source.last_published_at)}</span>
+          <div className="grid content-center gap-1 text-[11px] leading-5 text-muted-foreground md:text-xs">
+            <span className="whitespace-nowrap">Last fetched: {formatDate(source.last_fetched_at)}</span>
+            <span className="whitespace-nowrap">Last published: {formatDate(source.last_published_at)}</span>
           </div>
 
           <div className="flex items-center justify-end gap-2">
