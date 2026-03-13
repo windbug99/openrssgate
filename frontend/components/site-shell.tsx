@@ -1,17 +1,25 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
-    <div className="shell">
-      <header className="topbar">
-        <Link href="/" className="brand">
-          RSS Gateway
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6 md:py-10">
+      <header className="mb-10 flex flex-col gap-4 border-b pb-4 md:flex-row md:items-center md:justify-between">
+        <Link href="/" className="text-xl font-semibold tracking-tight md:text-2xl">
+          OpenRSSGate
         </Link>
-        <nav className="nav">
-          <Link href="/">Home</Link>
-          <Link href="/explore">Explore</Link>
-          <Link href="/docs">Docs</Link>
+        <nav className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/">Home</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/explore">Explore</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/docs">Docs</Link>
+          </Button>
         </nav>
       </header>
       {children}

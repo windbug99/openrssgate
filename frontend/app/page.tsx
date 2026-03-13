@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { FeedList } from "@/components/feed-list";
 import { SiteShell } from "@/components/site-shell";
 import { SourceRegisterForm } from "@/components/source-register-form";
@@ -14,54 +16,74 @@ export default async function HomePage() {
 
   return (
     <SiteShell>
-      <section className="hero">
-        <div className="card hero-copy">
-          <span className="eyebrow">RSS infrastructure for humans and AI</span>
-          <h1>Register once. Query everywhere.</h1>
-          <p>
-            RSS Gateway centralizes public feeds into a searchable index. People use the web interface. Agents use the
-            same data through REST, MCP, and CLI.
-          </p>
-          <div className="stats">
-            <div className="stat">
-              <strong>{sources.total}</strong>
-              <span>Indexed sources</span>
+      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card>
+          <CardContent className="space-y-8 p-8 md:p-10">
+            <div className="space-y-4">
+              <span className="inline-flex rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                RSS infrastructure for humans and AI
+              </span>
+              <div className="space-y-4">
+                <h1 className="max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
+                  Register once. Query everywhere.
+                </h1>
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+                  RSS Gateway centralizes public feeds into a searchable index. People use the web interface. Agents
+                  use the same data through REST, MCP, and CLI.
+                </p>
+              </div>
             </div>
-            <div className="stat">
-              <strong>{feeds.total}</strong>
-              <span>Recent feeds</span>
+            <div className="grid gap-3 md:grid-cols-3">
+              <Card>
+                <CardContent className="space-y-1 p-5">
+                  <strong className="block text-3xl font-semibold">{sources.total}</strong>
+                  <span className="text-sm text-muted-foreground">Indexed sources</span>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="space-y-1 p-5">
+                  <strong className="block text-3xl font-semibold">{feeds.total}</strong>
+                  <span className="text-sm text-muted-foreground">Recent feeds</span>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="space-y-1 p-5">
+                  <strong className="block text-3xl font-semibold">Open</strong>
+                  <span className="text-sm text-muted-foreground">Anonymous web registration</span>
+                </CardContent>
+              </Card>
             </div>
-            <div className="stat">
-              <strong>Open</strong>
-              <span>Anonymous web registration</span>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
         <SourceRegisterForm />
       </section>
 
-      <section className="section">
-        <div className="page-head">
+      <section className="mt-8 space-y-5">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <h2>Fresh Sources</h2>
-            <p className="muted">Newly indexed sources that passed validation and are available for search.</p>
+            <h2 className="text-2xl font-semibold tracking-tight">Fresh Sources</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Newly indexed sources that passed validation and are available for search.
+            </p>
           </div>
-          <Link href="/explore" className="button secondary">
-            Explore all
-          </Link>
+          <Button asChild variant="outline">
+            <Link href="/explore">Explore all</Link>
+          </Button>
         </div>
-        <div className="source-grid">
+        <div className="grid gap-4 md:grid-cols-2">
           {sources.items.map((source) => (
             <SourceCard key={source.id} source={source} />
           ))}
         </div>
       </section>
 
-      <section className="section">
-        <div className="page-head">
+      <section className="mt-8 space-y-5">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <h2>Recent Feed Activity</h2>
-            <p className="muted">Publicly available feed metadata collected from active sources.</p>
+            <h2 className="text-2xl font-semibold tracking-tight">Recent Feed Activity</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Publicly available feed metadata collected from active sources.
+            </p>
           </div>
         </div>
         <FeedList feeds={feeds.items} />

@@ -1,4 +1,5 @@
 import type { Feed } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function formatDate(value: string | null): string {
   if (!value) return "Unknown publish time";
@@ -10,17 +11,21 @@ function formatDate(value: string | null): string {
 
 export function FeedList({ feeds }: { feeds: Feed[] }) {
   return (
-    <div className="feed-list">
+    <div className="grid gap-4">
       {feeds.map((feed) => (
-        <article className="card feed-item" key={feed.id}>
-          <h3>{feed.title}</h3>
-          <p>{formatDate(feed.published_at)}</p>
-          <p>
+        <Card key={feed.id}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{feed.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>{formatDate(feed.published_at)}</p>
+            <p>
             <a href={feed.feed_url} target="_blank" rel="noreferrer">
               {feed.feed_url}
             </a>
-          </p>
-        </article>
+            </p>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
