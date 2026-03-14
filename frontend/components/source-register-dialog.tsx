@@ -22,7 +22,7 @@ export function SourceRegisterDialog({ trigger }: { trigger?: ReactNode }) {
         <DialogHeader>
           <DialogTitle>Add a new source</DialogTitle>
         </DialogHeader>
-        <div className="overflow-y-auto px-6 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="min-h-0 overflow-y-auto px-6 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <SourceRegisterForm />
         </div>
       </DialogContent>

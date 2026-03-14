@@ -111,7 +111,6 @@ export function SourceRegisterForm() {
               icon={<Filter className="h-4 w-4 text-muted-foreground" />}
               className="relative"
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
-              menuClassName="absolute left-0 top-full z-20 mt-px w-full border border-border bg-background shadow-none"
             />
           </label>
           <label className="space-y-2">
@@ -124,7 +123,6 @@ export function SourceRegisterForm() {
               icon={<Filter className="h-4 w-4 text-muted-foreground" />}
               className="relative"
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
-              menuClassName="absolute left-0 top-full z-20 mt-px w-full border border-border bg-background shadow-none"
             />
           </label>
           <div className="space-y-2 md:col-span-2">
