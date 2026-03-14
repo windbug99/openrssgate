@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import Source
+from app.db.models import Feed
 from app.services.ingest import ingest_source_bundle, mark_source_fetch_failure
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 
@@ -28,6 +30,14 @@ def get_due_sources(db: Session) -> list[Source]:
         if source.last_fetched_at is None
         or _as_utc_naive(source.last_fetched_at) <= now - timedelta(minutes=source.fetch_interval_minutes)
     ]
+
+
+def purge_expired_feeds(db: Session) -> int:
+    settings = get_settings()
+    cutoff = _as_utc_naive(datetime.now(UTC)) - timedelta(days=settings.feed_retention_days)
+    result = db.execute(delete(Feed).where(Feed.published_at.is_not(None), Feed.published_at < cutoff))
+    db.commit()
+    return int(result.rowcount or 0)
 
 
 async def collect_source(db: Session, source: Source) -> dict[str, object]:

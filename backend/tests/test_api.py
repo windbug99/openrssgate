@@ -916,3 +916,57 @@ def test_create_source_can_be_hidden_for_stale_feed(monkeypatch) -> None:
     payload = response.json()
     assert payload["status"] == "hidden"
     assert payload["status_reason"] == "stale_feed"
+
+
+def test_create_source_persists_only_recent_entries(monkeypatch) -> None:
+    from app.api import sources as sources_module
+    from app.services import ingest as ingest_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    fixed_now = datetime(2026, 3, 15, 0, 0, tzinfo=UTC)
+    monkeypatch.setattr(ingest_module, "_utcnow", lambda: fixed_now)
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/recent-only.xml",
+                "site_url": "https://recent.example.com",
+                "title": "Recent Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {
+                    "guid": "recent-1",
+                    "title": "Recent entry",
+                    "feed_url": "https://example.com/1",
+                    "published_at": fixed_now,
+                },
+                {
+                    "guid": "old-1",
+                    "title": "Old entry",
+                    "feed_url": "https://example.com/old",
+                    "published_at": fixed_now - timedelta(days=40),
+                },
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/recent-only.xml", "tags": []})
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "active"
+
+    with SessionLocal() as db:
+        source = db.query(Source).filter(Source.rss_url == "https://example.com/recent-only.xml").one()
+        feeds = db.query(Feed).filter(Feed.source_id == source.id).all()
+
+    assert len(feeds) == 1
+    assert feeds[0].guid == "recent-1"
