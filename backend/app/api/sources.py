@@ -32,7 +32,7 @@ from app.source_metadata import (
 from app.services.cache import response_cache
 from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
-from app.services.review import review_source_bundle
+from app.services.review import _normalize_site_host, review_source_bundle
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 
 router = APIRouter(prefix="/sources", tags=["sources"])
@@ -93,6 +93,19 @@ def _is_source_stale(source: Source) -> bool:
 
     window_minutes = max(source.fetch_interval_minutes * 2, 60)
     return fetched_at < datetime.now(UTC) - timedelta(minutes=window_minutes)
+
+
+def _source_exists_for_rss_url(db: Session, rss_url: str) -> bool:
+    return (db.scalar(select(func.count()).select_from(Source).where(Source.rss_url == rss_url)) or 0) > 0
+
+
+def _source_exists_for_site_url(db: Session, site_url: str) -> bool:
+    normalized_site_host = _normalize_site_host(site_url)
+    if not normalized_site_host:
+        return False
+
+    existing_site_urls = db.scalars(select(Source.site_url)).all()
+    return any(_normalize_site_host(existing_site_url or "") == normalized_site_host for existing_site_url in existing_site_urls)
 
 
 def _detect_tags(metadata: dict[str, object], payload_tags: list[str]) -> list[str]:
@@ -211,7 +224,7 @@ def list_sources(
     description="Validate an RSS URL before registration and return detected source metadata without writing to the database.",
     responses={400: {"description": "Invalid or unreachable RSS URL"}},
 )
-async def validate_source(payload: SourceCreate) -> SourceValidateResponse:
+async def validate_source(payload: SourceCreate, db: Session = Depends(get_session)) -> SourceValidateResponse:
     _validate_registration_payload(payload)
 
     try:
@@ -223,6 +236,19 @@ async def validate_source(payload: SourceCreate) -> SourceValidateResponse:
         ) from exc
 
     metadata = bundle["metadata"]
+    normalized_rss_url = str(metadata.get("rss_url") or payload.rss_url)
+    if _source_exists_for_rss_url(db, normalized_rss_url):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
+        )
+    site_url = str(metadata.get("site_url") or "").strip()
+    if _source_exists_for_site_url(db, site_url):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "A source for this site is already registered."},
+        )
+
     language = payload.language
     if language is None:
         detected_language = str(metadata.get("language") or "").strip().lower()
@@ -246,7 +272,7 @@ async def validate_source(payload: SourceCreate) -> SourceValidateResponse:
 
     return SourceValidateResponse(
         valid=True,
-        rss_url=str(metadata.get("rss_url") or payload.rss_url),
+        rss_url=normalized_rss_url,
         site_url=str(metadata.get("site_url") or ""),
         title=str(metadata.get("title") or ""),
         description=metadata.get("description"),
@@ -299,15 +325,22 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
         ) from exc
 
     metadata = bundle["metadata"]
+    normalized_rss_url = str(metadata.get("rss_url") or payload.rss_url)
+    if _source_exists_for_rss_url(db, normalized_rss_url):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
+        )
+
     site_url = str(metadata.get("site_url") or "").strip()
-    duplicate_site_url_exists = False
-    if site_url:
-        duplicate_site_url_exists = (
-            db.scalar(select(func.count()).select_from(Source).where(Source.site_url == site_url)) or 0
-        ) > 0
+    if _source_exists_for_site_url(db, site_url):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "A source for this site is already registered."},
+        )
 
     source = Source(
-        rss_url=metadata["rss_url"],
+        rss_url=normalized_rss_url,
         site_url=metadata["site_url"] or "",
         title=metadata["title"] or "",
         description=metadata["description"],
@@ -334,7 +367,7 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
     decision = review_source_bundle(
         metadata=metadata,
         entries=bundle["entries"],
-        duplicate_site_url_exists=duplicate_site_url_exists,
+        duplicate_site_url_exists=False,
     )
     source.status = decision.status
     source.status_reason = decision.reason

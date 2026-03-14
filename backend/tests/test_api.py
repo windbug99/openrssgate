@@ -318,6 +318,174 @@ def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:
     assert payload["tags"] == ["ai", "backend", "analysis"]
 
 
+def test_validate_source_endpoint_returns_specific_failure_reason(monkeypatch) -> None:
+    from app.api import sources as sources_module
+    from app.services.rss import InvalidRSSUrlError
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        raise InvalidRSSUrlError("The RSS URL returned HTTP 404.")
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/missing.xml", "tags": []})
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"]["code"] == "invalid_rss_url"
+    assert payload["error"]["message"] == "The RSS URL returned HTTP 404."
+
+
+def test_validate_source_endpoint_rejects_duplicate_source(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    with SessionLocal() as db:
+        db.add(
+            Source(
+                rss_url="https://example.com/feed.xml",
+                site_url="https://example.com",
+                title="Existing Source",
+                description="desc",
+                status="active",
+                registered_by="web",
+            )
+        )
+        db.commit()
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/feed.xml",
+                "site_url": "https://example.com",
+                "title": "Existing Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/feed.xml", "tags": []})
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["error"]["code"] == "duplicate_source"
+    assert payload["error"]["message"] == "This RSS URL is already registered."
+
+
+def test_create_source_rejects_duplicate_source_before_insert(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    with SessionLocal() as db:
+        db.add(
+            Source(
+                rss_url="https://example.com/feed.xml",
+                site_url="https://example.com",
+                title="Existing Source",
+                description="desc",
+                status="active",
+                registered_by="web",
+            )
+        )
+        db.commit()
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/feed.xml",
+                "site_url": "https://example.com",
+                "title": "Existing Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/feed.xml", "tags": []})
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["error"]["code"] == "duplicate_source"
+    assert payload["error"]["message"] == "This RSS URL is already registered."
+
+
+def test_validate_source_endpoint_rejects_duplicate_site(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    with SessionLocal() as db:
+        db.add(
+            Source(
+                rss_url="https://example.com/feed.xml",
+                site_url="https://example.com",
+                title="Existing Source",
+                description="desc",
+                status="active",
+                registered_by="web",
+            )
+        )
+        db.commit()
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/another-feed.xml",
+                "site_url": "https://example.com/",
+                "title": "Existing Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/another-feed.xml", "tags": []})
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["error"]["code"] == "duplicate_source"
+    assert payload["error"]["message"] == "A source for this site is already registered."
+
+
+def test_create_source_rejects_duplicate_site_before_insert(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    with SessionLocal() as db:
+        db.add(
+            Source(
+                rss_url="https://example.com/feed.xml",
+                site_url="https://example.com",
+                title="Existing Source",
+                description="desc",
+                status="active",
+                registered_by="web",
+            )
+        )
+        db.commit()
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://feeds.example.com/another-feed.xml",
+                "site_url": "https://example.com/",
+                "title": "Existing Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://feeds.example.com/another-feed.xml", "tags": []})
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["error"]["code"] == "duplicate_source"
+    assert payload["error"]["message"] == "A source for this site is already registered."
+
+
 def test_mcp_sse_endpoint_streams_manifest() -> None:
     with client.stream("GET", "/mcp/sse?once=true") as response:
         assert response.status_code == 200
@@ -633,10 +801,10 @@ def test_create_source_can_be_rejected_for_duplicate_site_url(monkeypatch) -> No
 
     response = client.post("/v1/sources", json={"rss_url": "https://example.com/duplicate.xml", "tags": []})
 
-    assert response.status_code == 201
+    assert response.status_code == 409
     payload = response.json()
-    assert payload["status"] == "rejected"
-    assert payload["status_reason"] == "duplicate_site_url"
+    assert payload["error"]["code"] == "duplicate_source"
+    assert payload["error"]["message"] == "A source for this site is already registered."
 
 
 def test_create_source_can_be_hidden_for_repetitive_titles(monkeypatch) -> None:

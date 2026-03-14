@@ -89,9 +89,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: { code?: string; message?: string } }
+      | { error?: { code?: string; message?: string }; detail?: { code?: string; message?: string } | string }
       | null;
-    throw new Error(payload?.error?.message ?? `Request failed with ${response.status}`);
+    const detailMessage =
+      typeof payload?.detail === "string"
+        ? payload.detail
+        : payload?.detail && typeof payload.detail === "object"
+          ? payload.detail.message
+          : undefined;
+    throw new Error(payload?.error?.message ?? detailMessage ?? `Request failed with ${response.status}`);
   }
 
   return response.json() as Promise<T>;

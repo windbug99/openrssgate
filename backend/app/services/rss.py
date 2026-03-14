@@ -59,6 +59,13 @@ async def _fetch_feed_text(rss_url: str) -> str:
         ) as client:
             response = await client.get(rss_url)
             response.raise_for_status()
+    except httpx.TimeoutException as exc:
+        raise InvalidRSSUrlError("The RSS URL timed out while fetching.") from exc
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code
+        raise InvalidRSSUrlError(f"The RSS URL returned HTTP {status_code}.") from exc
+    except httpx.ConnectError as exc:
+        raise InvalidRSSUrlError("The RSS URL could not be reached.") from exc
     except httpx.HTTPError as exc:
         raise InvalidRSSUrlError("The RSS URL could not be fetched.") from exc
 

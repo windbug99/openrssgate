@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpDown, Database, Filter, Search, Signal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { SourceCard } from "@/components/source-card";
@@ -28,11 +28,21 @@ function formatNumber(value: number): string {
 }
 
 export function SourcesSection({ id, sources, stats }: { id?: string; sources: Source[]; stats: Stats }) {
+  const [sourceItems, setSourceItems] = useState(sources);
+  const [localStats, setLocalStats] = useState(stats);
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<LanguageCode | "all">("all");
   const [type, setType] = useState<SourceType | "all">("all");
   const [category, setCategory] = useState<SourceCategory | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("published_desc");
+
+  useEffect(() => {
+    setSourceItems(sources);
+  }, [sources]);
+
+  useEffect(() => {
+    setLocalStats(stats);
+  }, [stats]);
 
   const languageOptions = useMemo(
     () => [{ value: "all", label: "All languages" }, ...LANGUAGE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))],
@@ -60,7 +70,7 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
 
   const filteredSources = useMemo(() => {
     const lowered = query.trim().toLowerCase();
-    const filtered = sources.filter((source) => {
+    const filtered = sourceItems.filter((source) => {
       const matchesQuery =
         lowered.length === 0 ||
         source.title.toLowerCase().includes(lowered) ||
@@ -87,7 +97,7 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
     });
 
     return ranked;
-  }, [category, language, query, sortKey, sources, type]);
+  }, [category, language, query, sortKey, sourceItems, type]);
 
   return (
     <section id={id} className="-mx-6 scroll-mt-24 space-y-6 md:-mx-10">
@@ -111,15 +121,15 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
               <Signal className="h-4 w-4" />
               Active sources
             </div>
-            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(stats.active_sources)}</div>
+            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(localStats.active_sources)}</div>
           </div>
           <div className="border border-border/80 bg-card/20 px-4 py-4">
             <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Indexed feeds</div>
-            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(stats.total_feeds)}</div>
+            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(localStats.total_feeds)}</div>
           </div>
           <div className="border border-border/80 bg-card/20 px-4 py-4">
             <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Feeds last 24h</div>
-            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(stats.feeds_last_24h)}</div>
+            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(localStats.feeds_last_24h)}</div>
           </div>
         </div>
       </div>
@@ -139,6 +149,23 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
 
             <div className="flex">
               <SourceRegisterDialog
+                onSuccess={(source) => {
+                  setSourceItems((current) => {
+                    if (current.some((item) => item.id === source.id)) {
+                      return current;
+                    }
+                    return [source, ...current];
+                  });
+                  setLocalStats((current) => ({
+                    ...current,
+                    active_sources: current.active_sources + (source.status === "active" ? 1 : 0),
+                  }));
+                  setQuery("");
+                  setLanguage("all");
+                  setType("all");
+                  setCategory("all");
+                  setSortKey("registered_desc");
+                }}
                 trigger={
                   <Button
                     type="button"

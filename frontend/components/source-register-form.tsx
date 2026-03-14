@@ -93,7 +93,7 @@ function getValidationMessage(source: SourceValidation): string {
   return parts.join(" · ");
 }
 
-export function SourceRegisterForm() {
+export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source) => void }) {
   const [form, setForm] = useState(initialState);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -155,6 +155,7 @@ export function SourceRegisterForm() {
       setValidatedSource(null);
       setValidationError(null);
       setForm(initialState);
+      onSuccess?.(source);
     } catch (submitError) {
       setCreatedSource(null);
       setError(submitError instanceof Error ? submitError.message : "Source registration failed.");
