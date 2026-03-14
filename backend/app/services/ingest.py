@@ -35,7 +35,7 @@ def ingest_source_bundle(
     source.consecutive_fail_count = 0
 
     inserted = 0
-    latest_published_at = source.last_published_at
+    latest_published_at = _to_utc_naive(source.last_published_at)
     candidate_guids = [str(entry["guid"]) for entry in entries]
 
     existing_guids = set()
@@ -63,7 +63,7 @@ def ingest_source_bundle(
         if published_at and (latest_published_at is None or published_at > latest_published_at):
             latest_published_at = published_at
 
-    source.last_published_at = latest_published_at
+    source.last_published_at = _to_utc_naive(latest_published_at)
     return {"inserted": inserted}
 
 
