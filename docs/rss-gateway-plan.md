@@ -348,10 +348,14 @@ HTTP fetch 규칙
 |--------|----------|------|
 | GET | `/sources` | 등록된 Source 목록 조회 |
 | POST | `/sources` | 웹 프론트 전용 Source 등록 |
+| POST | `/sources/validate` | 등록 전 RSS URL 유효성 검증 |
 | GET | `/sources/{source_id}` | 특정 RSS 정보 조회 |
+| GET | `/sources/{source_id}/status` | 특정 Source 수집 상태 조회 |
 | GET | `/sources/{source_id}/feeds` | 특정 Source의 Feed 목록 조회 |
 | GET | `/sources/{source_id}/feeds/{feed_id}` | 특정 Feed 상세 조회 |
-| GET | `/feeds` | 전체 Feed 통합 조회 (필터 가능) |
+| GET | `/feeds` | 전체 Feed 통합 조회 (검색/필터 가능) |
+| GET | `/feeds/{feed_id}` | 특정 Feed 상세 조회 |
+| GET | `/stats` | 전체 Source / Feed 집계 조회 |
 
 **주요 쿼리 파라미터**
 
@@ -361,12 +365,31 @@ GET /sources
   ?language=ko         언어 필터
   ?category=blog       카테고리 필터
   ?tag=tech            태그 필터
+  ?type=blog           Source 타입 필터
   ?page=1&limit=20     페이지네이션
 
 GET /feeds
   ?since=24h           최근 N시간 이내
   ?source_id=xxx       특정 Source 필터
   ?language=ko         언어 필터
+  ?q=openai            Feed 제목 검색
+  ?type=blog           Source 타입 기준 필터
+  ?category=tech       Source 카테고리 기준 필터
+  ?tag=ai              Source 태그 기준 필터
+
+GET /sources/{source_id}/status
+  공개 응답: active Source만 조회 가능
+  반환: last_fetched_at, last_published_at, consecutive_fail_count,
+       fetch_interval_minutes, is_stale
+
+POST /sources/validate
+  rss_url 필수
+  선택값: language, type, categories, tags
+  반환: valid, rss_url, site_url, title, language, type,
+       categories, tags, feed_format
+
+GET /stats
+  반환: total_sources, active_sources, total_feeds, feeds_last_24h
 ```
 
 **MVP 엔드포인트 상세 규격**
@@ -430,6 +453,14 @@ GET /feeds
 기본 page=1, limit=20
 최대 limit=100
 since 형식: 1h / 24h / 7d
+반환 대상: active Source에 속한 Feed만 포함
+```
+
+`GET /feeds/{feed_id}`
+
+```
+Feed 단건 상세 조회
+응답에는 source 메타 일부를 포함
 반환 대상: active Source에 속한 Feed만 포함
 ```
 
@@ -889,9 +920,9 @@ sources 테이블 추가 컬럼 (Phase 2)
 
 선택
 [x] `GET /v1/feeds/{feed_id}` 공개 API 추가
-[ ] CLI PyPI 정식 배포 (`pip install openrssgate`)
-    - 저장소 구현/자동화 완료
-    - PyPI trusted publishing, GitHub secrets, Homebrew tap 저장소 설정 필요
+[x] CLI 공개 배포 완료 (`pipx install openrssgate`, `brew install openrssgate`)
+    - PyPI 0.1.1 배포 및 설치 검증 완료
+    - Homebrew tap (`windbug99/homebrew-tap`) 배포 및 설치 검증 완료
 
 추가 안정화 과제
 [x] API Key 인증 시스템
@@ -945,7 +976,7 @@ sources 테이블 추가 컬럼 (Phase 2)
 확인 필요
 - Railway API/worker 장기 안정성 모니터링
 - Vercel Preview/이전 배포 이력 정리
-- CLI PyPI 배포 절차와 릴리스 토큰 준비
+- CLI PyPI / Homebrew 공개 배포 및 설치 검증 완료
 - Redis 실환경 연결 및 TTL 운영값 확정
 - PyPI / GitHub / Homebrew tap 외부 설정 완료
 ```
@@ -969,7 +1000,7 @@ sources 테이블 추가 컬럼 (Phase 2)
 9. Redis 실환경 연결 및 캐시 무효화 기준 점검
 
 우선순위 4: 배포 완성도
-10. CLI PyPI 배포
+10. CLI 차기 버전 릴리스 운영 정리
 11. Vercel / Railway 모니터링 및 알림 설정
 12. Preview/old deployment 정리 및 보안 배너 잔여 이력 정리
 ```

@@ -4,7 +4,6 @@ import { Filter } from "lucide-react";
 import { useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSource, validateSource, type Source, type SourceValidation } from "@/lib/api";
@@ -60,6 +59,38 @@ function mergeLimitedSelection<T extends string>(current: T[], detected: T[], ma
     return current;
   }
   return detected.slice(0, maxCount);
+}
+
+function getAutoAppliedFields(source: SourceValidation): string[] {
+  const applied: string[] = [];
+
+  if (source.language) {
+    applied.push("language");
+  }
+  if (source.type) {
+    applied.push("type");
+  }
+  if (source.categories.length > 0) {
+    applied.push("categories");
+  }
+  if (source.tags.length > 0) {
+    applied.push("tags");
+  }
+
+  return applied;
+}
+
+function getValidationMessage(source: SourceValidation): string {
+  const parts = ["Validated"];
+
+  if (source.title) {
+    parts.push(source.title);
+  }
+  if (source.feed_format) {
+    parts.push(source.feed_format);
+  }
+
+  return parts.join(" · ");
 }
 
 export function SourceRegisterForm() {
@@ -139,63 +170,43 @@ export function SourceRegisterForm() {
           Register the RSS URL and classify the source with controlled options for language, type, categories, and tags.
         </p>
       </div>
-      {validatedSource ? (
-        <div className="space-y-3 border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <strong>Validated.</strong> The detected metadata has been applied to empty form fields where possible.
-            </div>
-            <Badge variant="outline">{validatedSource.feed_format ?? "unknown"}</Badge>
-          </div>
-          <div className="space-y-1">
-            <div><strong>Title:</strong> {validatedSource.title || "-"}</div>
-            <div><strong>Site:</strong> {validatedSource.site_url || "-"}</div>
-            <div><strong>Language:</strong> {validatedSource.language ? (LANGUAGE_LABELS[validatedSource.language] ?? validatedSource.language) : "-"}</div>
-            <div><strong>Type:</strong> {validatedSource.type ? (SOURCE_TYPE_LABELS[validatedSource.type] ?? validatedSource.type) : "-"}</div>
-          </div>
-          {validatedSource.categories.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {validatedSource.categories.map((category) => (
-                <Badge key={category} variant="outline">
-                  {SOURCE_CATEGORY_LABELS[category] ?? category}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-          {validatedSource.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {validatedSource.tags.map((tag) => (
-                <Badge key={tag} variant="outline">
-                  {SOURCE_TAG_LABELS[tag] ?? tag}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
       {createdSource ? (
         <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
       {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
-      {validationError ? (
-        <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{validationError}</div>
-      ) : null}
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="grid gap-3 md:col-span-2 md:grid-cols-[minmax(0,1fr)_180px]">
-            <Input
-              className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              placeholder="https://blog.example.com/rss.xml"
-              value={form.rss_url}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setForm((current) => ({ ...current, rss_url: nextValue }));
-                setValidatedSource((current) => (current?.rss_url === nextValue ? current : null));
-              }}
-              required
-            />
+            <div className="space-y-2">
+              <Input
+                className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="https://blog.example.com/rss.xml"
+                value={form.rss_url}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setForm((current) => ({ ...current, rss_url: nextValue }));
+                  setValidatedSource((current) => (current?.rss_url === nextValue ? current : null));
+                }}
+                required
+              />
+              {validatedSource ? (
+                <div className="space-y-1 text-xs leading-5">
+                  <div className="text-emerald-500">{getValidationMessage(validatedSource)}</div>
+                  <div className="text-muted-foreground">
+                    {(() => {
+                      const fields = getAutoAppliedFields(validatedSource);
+                      if (fields.length === 0) {
+                        return "No language, type, category, or tag was detected automatically.";
+                      }
+                      return `Auto-applied to empty fields: ${fields.join(", ")}.`;
+                    })()}
+                  </div>
+                </div>
+              ) : null}
+              {validationError ? <div className="text-xs leading-5 text-destructive">{validationError}</div> : null}
+            </div>
             <Button type="button" variant="outline" disabled={validating || saving} className="h-12 rounded-none px-6" onClick={handleValidate}>
               {validating ? "Validating..." : "Validate first"}
             </Button>

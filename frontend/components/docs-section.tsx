@@ -15,23 +15,79 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+type DocSection = {
+  heading: string;
+  lines: string[];
+};
+
 const apiCommands = [
-  "GET /v1/sources",
-  "GET /v1/sources/{source_id}",
-  "GET /v1/feeds?since=7d",
-  "POST /v1/sources",
+  {
+    heading: "Core",
+    lines: [
+      "List sources: GET /v1/sources",
+      "Source detail: GET /v1/sources/{source_id}",
+      "Source feeds: GET /v1/sources/{source_id}/feeds",
+      "Feed detail: GET /v1/feeds/{feed_id}",
+    ],
+  },
+  {
+    heading: "Search",
+    lines: [
+      "Feeds: GET /v1/feeds?q=openai&since=7d",
+      "Stats: GET /v1/stats",
+      "Validate: POST /v1/sources/validate",
+      "Status: GET /v1/sources/{source_id}/status",
+    ],
+  },
 ];
 
 const mcpInfo = [
-  "SSE: https://openrssgate-production.up.railway.app/mcp/sse",
-  "Manifest: https://openrssgate-production.up.railway.app/mcp/tools",
-  "Tools: search_sources, get_source, get_recent_feeds, get_source_feeds",
+  {
+    heading: "Connect",
+    lines: [
+      "SSE: https://openrssgate-production.up.railway.app/mcp/sse",
+      "Manifest: https://openrssgate-production.up.railway.app/mcp/tools",
+    ],
+  },
+  {
+    heading: "Use",
+    lines: [
+      "Find sources: Find English AI blogs in OpenRSSGate",
+      "Recent feeds: Show recent feeds about OpenAI from the last 7 days",
+      "Source feeds: Get recent feeds from Platformer in OpenRSSGate",
+      "Source detail: Get the source metadata for Platformer in OpenRSSGate",
+    ],
+  },
+  {
+    heading: "Tools",
+    lines: [
+      "Available: search_sources, get_source, get_recent_feeds, get_source_feeds",
+    ],
+  },
 ];
 
 const cliInfo = [
-  "export OPENRSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1",
-  "openrssgate list",
-  "openrssgate feeds --since 7d",
+  {
+    heading: "Install",
+    lines: [
+      "Homebrew: brew tap windbug99/homebrew-tap && brew install openrssgate",
+      "pipx: pipx install openrssgate",
+    ],
+  },
+  {
+    heading: "Run",
+    lines: [
+      "List sources: openrssgate list",
+      "Recent feeds: openrssgate feeds --q openai --since 7d",
+      "Quick stats: openrssgate stats",
+    ],
+  },
+  {
+    heading: "Custom API",
+    lines: [
+      "export OPENRSSGATE_API_BASE_URL=http://127.0.0.1:8000/v1",
+    ],
+  },
 ];
 
 type DocsSectionProps = {
@@ -46,7 +102,7 @@ function InterfaceDialog({
 }: {
   title: string;
   description: string;
-  lines: string[];
+  lines: string[] | DocSection[];
   trigger: React.ReactNode;
 }) {
   const [copiedLine, setCopiedLine] = useState<string | null>(null);
@@ -63,6 +119,8 @@ function InterfaceDialog({
     setCopiedLine(line);
   }
 
+  const isSectioned = typeof lines[0] !== "string";
+
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -70,38 +128,78 @@ function InterfaceDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="bg-muted/10 px-6 py-5">
+        <div className="min-h-0 overflow-y-auto bg-muted/10 px-6 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <DialogDescription className="mb-5">{description}</DialogDescription>
-          <div className="border border-border/80 bg-background">
-            {lines.map((line, index) => {
-              const separatorIndex = line.indexOf(": ");
-              const hasLabel = separatorIndex !== -1;
-              const label = hasLabel ? line.slice(0, separatorIndex + 1) : null;
-              const value = hasLabel ? line.slice(separatorIndex + 2) : line;
+          {isSectioned ? (
+            <div className="space-y-4">
+              {(lines as DocSection[]).map((section) => (
+                <div key={section.heading} className="border border-border/80 bg-background">
+                  <div className="border-b border-border/80 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    {section.heading}
+                  </div>
+                  {section.lines.map((line, index) => {
+                    const separatorIndex = line.indexOf(": ");
+                    const hasLabel = separatorIndex !== -1;
+                    const label = hasLabel ? line.slice(0, separatorIndex + 1) : null;
+                    const value = hasLabel ? line.slice(separatorIndex + 2) : line;
 
-              return (
-                <div
-                  key={line}
-                  className={cn(
-                    "grid items-start gap-3 px-4 py-3 text-[0.92rem] leading-7",
-                    index !== lines.length - 1 && "border-b border-border/80",
-                    hasLabel ? "md:grid-cols-[110px_minmax(0,1fr)_36px]" : "grid-cols-[minmax(0,1fr)_36px]",
-                  )}
-                >
-                  {label ? <div className="font-mono text-muted-foreground">{label}</div> : null}
-                  <div className="font-mono break-all text-foreground/80">{value}</div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(line)}
-                    className="inline-flex h-9 w-9 items-center justify-center border border-border/80 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-                    aria-label={`Copy ${title} line`}
-                  >
-                    {copiedLine === line ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </button>
+                    return (
+                      <div
+                        key={line}
+                        className={cn(
+                          "grid items-start gap-3 px-4 py-3 text-[0.92rem] leading-7",
+                          index !== section.lines.length - 1 && "border-b border-border/80",
+                          hasLabel ? "md:grid-cols-[110px_minmax(0,1fr)_36px]" : "grid-cols-[minmax(0,1fr)_36px]",
+                        )}
+                      >
+                        {label ? <div className="font-mono text-muted-foreground">{label}</div> : null}
+                        <div className="font-mono break-all text-foreground/80">{value}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(line)}
+                          className="inline-flex h-9 w-9 items-center justify-center border border-border/80 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                          aria-label={`Copy ${title} line`}
+                        >
+                          {copiedLine === line ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-border/80 bg-background">
+              {(lines as string[]).map((line, index) => {
+                const separatorIndex = line.indexOf(": ");
+                const hasLabel = separatorIndex !== -1;
+                const label = hasLabel ? line.slice(0, separatorIndex + 1) : null;
+                const value = hasLabel ? line.slice(separatorIndex + 2) : line;
+
+                return (
+                  <div
+                    key={line}
+                    className={cn(
+                      "grid items-start gap-3 px-4 py-3 text-[0.92rem] leading-7",
+                      index !== lines.length - 1 && "border-b border-border/80",
+                      hasLabel ? "md:grid-cols-[110px_minmax(0,1fr)_36px]" : "grid-cols-[minmax(0,1fr)_36px]",
+                    )}
+                  >
+                    {label ? <div className="font-mono text-muted-foreground">{label}</div> : null}
+                    <div className="font-mono break-all text-foreground/80">{value}</div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(line)}
+                      className="inline-flex h-9 w-9 items-center justify-center border border-border/80 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                      aria-label={`Copy ${title} line`}
+                    >
+                      {copiedLine === line ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -130,7 +228,7 @@ export function DocsSection({ id }: DocsSectionProps) {
         <div className="grid w-full grid-cols-3 border border-border/80">
           <InterfaceDialog
             title="REST API"
-            description="Public read endpoints plus anonymous source registration."
+            description="Public read endpoints plus source validation. Use REST directly if you want to query sources, feeds, stats, or source health from your own app."
             lines={apiCommands}
             trigger={
               <Button variant="ghost" className="h-12 w-full rounded-none border-r border-border/80 px-5">
@@ -141,7 +239,7 @@ export function DocsSection({ id }: DocsSectionProps) {
           />
           <InterfaceDialog
             title="Remote MCP"
-            description="Remote MCP transport for assistants and agent runtimes."
+            description="Connect your MCP client to the public OpenRSSGate endpoint, then ask for sources, source details, or recent feeds in natural language."
             lines={mcpInfo}
             trigger={
               <Button variant="ghost" className="h-12 w-full rounded-none border-r border-border/80 px-5">
@@ -152,7 +250,7 @@ export function DocsSection({ id }: DocsSectionProps) {
           />
           <InterfaceDialog
             title="CLI"
-            description="Terminal access for listing sources and recent feeds."
+            description="Install once, then use the public OpenRSSGate API from your terminal. Homebrew needs `brew tap windbug99/homebrew-tap` first because `openrssgate` is published through a custom tap, not homebrew-core."
             lines={cliInfo}
             trigger={
               <Button variant="ghost" className="h-12 w-full rounded-none px-5">

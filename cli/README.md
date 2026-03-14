@@ -2,6 +2,8 @@
 
 ## Install
 
+권장 설치 방식은 `pipx` 또는 Homebrew입니다.
+
 Local install with `pipx`:
 
 ```bash
@@ -16,10 +18,12 @@ pipx install openrssgate
 openrssgate list
 ```
 
-or:
+If `~/.local/bin` is not on your shell `PATH` yet:
 
 ```bash
-pipx install openrssgate
+pipx ensurepath
+source ~/.zshrc
+openrssgate list
 ```
 
 Install directly from GitHub before the PyPI release:
@@ -39,6 +43,11 @@ brew tap windbug99/homebrew-tap
 brew install openrssgate
 openrssgate list
 ```
+
+Verified release:
+
+- PyPI: `openrssgate==0.1.1`
+- Homebrew tap: `windbug99/homebrew-tap`
 
 ## Run
 

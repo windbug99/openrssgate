@@ -11,7 +11,7 @@
 2. Run tests
 3. Build sdist and wheel
 4. Upload to PyPI
-5. Verify `pip install openrssgate`
+5. Verify `pipx install openrssgate`
 
 ## Commands
 
@@ -29,11 +29,9 @@ External account and repository setup is documented in [EXTERNAL_SETUP.md](/User
 ## Install verification
 
 ```bash
-python -m venv /tmp/openrssgate-release-check
-source /tmp/openrssgate-release-check/bin/activate
-pip install openrssgate
+pipx install openrssgate
 openrssgate --help
-openrssgate stats --json
+openrssgate list
 ```
 
 ## Homebrew release
@@ -54,7 +52,13 @@ If you want to automate the tap update, configure the Homebrew workflow describe
 ### Install verification
 
 ```bash
-brew tap <owner>/tap
+brew tap windbug99/homebrew-tap
 brew install openrssgate
 openrssgate --help
+openrssgate list
 ```
+
+## Current verified release
+
+- PyPI: `openrssgate==0.1.1`
+- Homebrew tap: `windbug99/homebrew-tap`

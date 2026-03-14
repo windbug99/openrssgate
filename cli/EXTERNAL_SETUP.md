@@ -9,7 +9,17 @@
 - Homebrew formula 템플릿 및 생성 스크립트
 - Homebrew tap 반영 workflow 초안
 
-아래 단계부터는 PyPI, GitHub, Homebrew 같은 외부 서비스에서 직접 설정해야 합니다.
+현재 `openrssgate 0.1.1` 기준으로 아래 외부 설정과 첫 배포 검증은 완료되었습니다.
+
+완료된 항목:
+
+- PyPI Trusted Publishing 연결
+- GitHub Actions 릴리스 workflow 실행
+- Homebrew tap 저장소 생성 및 workflow 연동
+- `pipx install openrssgate` 검증
+- `brew install openrssgate` 검증
+
+아래 내용은 다음 버전 릴리스 때 반복할 참고 절차입니다.
 
 ---
 
@@ -121,8 +131,8 @@ brew install openrssgate
 ### 태그 예시
 
 ```bash
-git tag openrssgate-cli-v0.1.0
-git push origin openrssgate-cli-v0.1.0
+git tag openrssgate-cli-v0.1.1
+git push origin openrssgate-cli-v0.1.1
 ```
 
 ### 실행되는 workflow
@@ -135,7 +145,7 @@ git push origin openrssgate-cli-v0.1.0
 ### Homebrew workflow 실행에 필요한 값
 
 - `version`
-  예: `0.1.0`
+  예: `0.1.1`
 - `formula_artifact_run_id`
   앞 단계 릴리스 workflow에서 생성된 artifact가 포함된 GitHub Actions run id
 
@@ -154,19 +164,18 @@ git push origin openrssgate-cli-v0.1.0
 ### PyPI 설치 검증
 
 ```bash
-python -m venv /tmp/openrssgate-pypi-check
-source /tmp/openrssgate-pypi-check/bin/activate
-pip install openrssgate
+pipx install openrssgate
 openrssgate --help
-openrssgate stats --json
+openrssgate list
 ```
 
 ### Homebrew 설치 검증
 
 ```bash
-brew tap <owner>/tap
+brew tap windbug99/homebrew-tap
 brew install openrssgate
 openrssgate --help
+openrssgate list
 ```
 
 ### 확인 포인트
@@ -181,12 +190,10 @@ openrssgate --help
 
 아래 항목은 제가 이 저장소 안에서 대신 끝낼 수 없고, 직접 설정하셔야 합니다.
 
-1. PyPI에서 `openrssgate` 프로젝트 준비
-2. PyPI Trusted Publishing 설정
-3. GitHub Secrets 등록
-4. Homebrew tap 저장소 생성
-5. GitHub tag 기반 첫 릴리스 실행
-6. PyPI / Homebrew 실제 설치 검증
+1. 새 버전 번호 결정
+2. GitHub tag 기반 릴리스 실행
+3. Homebrew formula workflow 실행
+4. PyPI / Homebrew 실제 설치 재검증
 
 ---
 
