@@ -20,7 +20,7 @@ function formatDateTime(value: string | null): string {
 }
 
 export default async function HomePage() {
-  const sources = await listSources({ limit: "40" }).catch(() => ({ items: [], page: 1, limit: 40, total: 0 }));
+  const sources = await listSources({ limit: "100" }).catch(() => ({ items: [], page: 1, limit: 100, total: 0 }));
   const stats = await getStats().catch(() => ({
     total_sources: sources.total,
     active_sources: sources.total,
@@ -85,7 +85,14 @@ export default async function HomePage() {
 
       <div className="space-y-20 px-6 md:px-10">
         <DocsSection id="docs" />
-        <SourcesSection id="sources" sources={sources.items} stats={stats} />
+        <SourcesSection
+          id="sources"
+          sources={sources.items}
+          stats={stats}
+          initialPage={sources.page}
+          pageSize={sources.limit}
+          totalSources={sources.total}
+        />
       </div>
     </SiteShell>
   );

@@ -8,7 +8,7 @@ import { SourceCard } from "@/components/source-card";
 import { SourceRegisterDialog } from "@/components/source-register-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Source, Stats } from "@/lib/api";
+import { listSources, type Source, type Stats } from "@/lib/api";
 import {
   LANGUAGE_LABELS,
   LANGUAGE_OPTIONS,
@@ -27,9 +27,26 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-export function SourcesSection({ id, sources, stats }: { id?: string; sources: Source[]; stats: Stats }) {
+export function SourcesSection({
+  id,
+  sources,
+  stats,
+  initialPage,
+  pageSize,
+  totalSources,
+}: {
+  id?: string;
+  sources: Source[];
+  stats: Stats;
+  initialPage: number;
+  pageSize: number;
+  totalSources: number;
+}) {
   const [sourceItems, setSourceItems] = useState(sources);
   const [localStats, setLocalStats] = useState(stats);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [totalCount, setTotalCount] = useState(totalSources);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<LanguageCode | "all">("all");
   const [type, setType] = useState<SourceType | "all">("all");
@@ -38,7 +55,9 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
 
   useEffect(() => {
     setSourceItems(sources);
-  }, [sources]);
+    setCurrentPage(initialPage);
+    setTotalCount(totalSources);
+  }, [initialPage, sources, totalSources]);
 
   useEffect(() => {
     setLocalStats(stats);
@@ -98,6 +117,27 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
 
     return ranked;
   }, [category, language, query, sortKey, sourceItems, type]);
+
+  const hasMore = sourceItems.length < totalCount;
+
+  async function handleLoadMore(): Promise<void> {
+    if (isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const response = await listSources({ page: String(nextPage), limit: String(pageSize) });
+      setSourceItems((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        const appended = response.items.filter((item) => !seen.has(item.id));
+        return [...current, ...appended];
+      });
+      setCurrentPage(response.page);
+      setTotalCount(response.total);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   return (
     <section id={id} className="-mx-6 scroll-mt-24 space-y-6 md:-mx-10">
@@ -160,6 +200,7 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
                     ...current,
                     active_sources: current.active_sources + (source.status === "active" ? 1 : 0),
                   }));
+                  setTotalCount((current) => current + (source.status === "active" ? 1 : 0));
                   setQuery("");
                   setLanguage("all");
                   setType("all");
@@ -224,14 +265,27 @@ export function SourcesSection({ id, sources, stats }: { id?: string; sources: S
             No sources matched the current search and filter combination.
           </div>
         ) : (
-          <div className="overflow-hidden border border-border/80 bg-card/20">
-            {filteredSources.map((source, index) => (
-              <SourceCard
-                key={source.id}
-                source={source}
-                className={index > 0 ? "border-t border-border/70" : undefined}
-              />
-            ))}
+          <div className="space-y-4">
+            <div className="overflow-hidden border border-border/80 bg-card/20">
+              {filteredSources.map((source, index) => (
+                <SourceCard
+                  key={source.id}
+                  source={source}
+                  className={index > 0 ? "border-t border-border/70" : undefined}
+                />
+              ))}
+            </div>
+            {hasMore ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-none"
+                onClick={() => void handleLoadMore()}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? "Loading..." : `Load more (${formatNumber(totalCount - sourceItems.length)} left)`}
+              </Button>
+            ) : null}
           </div>
         )}
       </div>
