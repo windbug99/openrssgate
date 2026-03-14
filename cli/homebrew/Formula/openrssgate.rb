@@ -2,12 +2,21 @@ class Openrssgate < Formula
   include Language::Python::Virtualenv
 
   desc "Read-only CLI for querying OpenRSSGate sources and feeds"
-  homepage "https://github.com/windbug99/openrssgate"
-  url "__OPENRSSGATE_SDIST_URL__"
-  sha256 "__OPENRSSGATE_SDIST_SHA256__"
+  homepage "https://github.com/<owner>/openrssgate"
+  url "https://files.pythonhosted.org/packages/source/o/openrssgate/openrssgate-0.1.0.tar.gz"
+  sha256 "22a2a32bf5b230adc95d3a49a6ae71ac9f46edf07ef09a025bbde5d9a4a91791"
   license "MIT"
 
   depends_on "python@3.13"
+
+  # Fill this section with the output from:
+  # brew update-python-resources Formula/openrssgate.rb
+  #
+  # Example:
+  # resource "anyio" do
+  #   url "https://files.pythonhosted.org/packages/.../anyio-4.12.0.tar.gz"
+  #   sha256 "..."
+  # end
 
   resource "anyio" do
     url "https://files.pythonhosted.org/packages/96/f0/5eb65b2bb0d09ac6776f2eb54adee6abe8228ea05b20a5ad0e4945de8aac/anyio-4.12.1.tar.gz"

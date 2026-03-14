@@ -24,6 +24,12 @@ class OpenRSSGateClient:
             payload = exc.response.json() if exc.response.headers.get("content-type", "").startswith("application/json") else {}
             message = payload.get("error", {}).get("message", exc.response.text)
             raise ApiError(message) from exc
+        except httpx.ConnectError as exc:
+            raise ApiError(
+                "Failed to connect to OpenRSSGate API.\n"
+                f"Base URL: {self.base_url}\n"
+                "Set OPENRSSGATE_API_BASE_URL if you want to use a custom server."
+            ) from exc
         except httpx.HTTPError as exc:
             raise ApiError(str(exc)) from exc
         return response.json()

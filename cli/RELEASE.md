@@ -46,7 +46,7 @@ Homebrew distribution should be published through a custom tap. The repository-s
 2. Build or download the exact source archive that will be referenced by the formula
 3. Run `python homebrew/prepare_formula_release.py --archive <local-archive> --url <sdist-url>`
 4. Copy the generated `homebrew/Formula/openrssgate.rb` to the tap repository
-5. Run `brew update-python-resources Formula/openrssgate.rb`
+5. If dependencies changed since the last release, regenerate the Homebrew `resource` blocks and sync them back into [homebrew/Formula/openrssgate.rb.template](/Users/tomato/cursor/openrssgate/cli/homebrew/Formula/openrssgate.rb.template)
 6. Commit the finished formula to the tap repository
 
 If you want to automate the tap update, configure the Homebrew workflow described in [GITHUB_ACTIONS.md](/Users/tomato/cursor/openrssgate/cli/GITHUB_ACTIONS.md).

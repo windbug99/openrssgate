@@ -13,12 +13,13 @@ After PyPI release:
 
 ```bash
 pipx install openrssgate
+openrssgate list
 ```
 
 or:
 
 ```bash
-pip install openrssgate
+pipx install openrssgate
 ```
 
 Install directly from GitHub before the PyPI release:
@@ -34,24 +35,26 @@ External service setup steps are documented in [EXTERNAL_SETUP.md](/Users/tomato
 After Homebrew tap release:
 
 ```bash
-brew tap <owner>/tap
+brew tap windbug99/homebrew-tap
 brew install openrssgate
+openrssgate list
 ```
 
 ## Run
 
+The CLI uses the deployed OpenRSSGate API by default. Set `OPENRSSGATE_API_BASE_URL` only if you want to target a custom server.
+
 ```bash
 openrssgate list
-openrssgate feeds --since 7d
+openrssgate feeds --q openai --tag ai --since 7d
 openrssgate stats
 openrssgate validate https://example.com/rss.xml
 openrssgate feed <feed_id>
 ```
 
-Set `OPENRSSGATE_API_BASE_URL` to the backend base URL if needed.
+To target a local or self-hosted backend:
 
 ```bash
-export OPENRSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1
+export OPENRSSGATE_API_BASE_URL=http://127.0.0.1:8000/v1
 openrssgate list
-openrssgate feeds --q openai --tag ai --since 7d
 ```

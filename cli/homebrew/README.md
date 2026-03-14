@@ -38,10 +38,14 @@ python prepare_formula_release.py \
 
 ## Resource generation
 
-After replacing the package URL and sha, generate Python dependency resources:
+The template already includes the Python dependency `resource` blocks required for the current pinned CLI dependencies.
+
+If the CLI dependency set changes, regenerate the resource blocks against a real tap formula:
 
 ```bash
-brew update-python-resources Formula/openrssgate.rb
+brew tap <owner>/tap
+cp Formula/openrssgate.rb /opt/homebrew/Library/Taps/<owner>/homebrew-tap/Formula/openrssgate.rb
+brew update-python-resources /opt/homebrew/Library/Taps/<owner>/homebrew-tap/Formula/openrssgate.rb
 ```
 
-Copy the generated `resource` blocks into the formula, then commit the final `openrssgate.rb` file to the tap repository.
+Then sync the updated `resource` blocks back into `Formula/openrssgate.rb.template` before the next release.
