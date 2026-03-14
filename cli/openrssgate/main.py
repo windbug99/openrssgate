@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import typer
 
-from rssgate.client import ApiError
-from rssgate.commands import feeds, list as list_command
+from openrssgate.client import ApiError
+from openrssgate.commands import feeds, list as list_command, stats, validate
 
 app = typer.Typer(
     add_completion=False,
@@ -13,6 +13,8 @@ app = typer.Typer(
 
 list_command.register(app)
 feeds.register(app)
+stats.register(app)
+validate.register(app)
 
 
 @app.callback()

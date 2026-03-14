@@ -5,7 +5,7 @@ import { SiteShell } from "@/components/site-shell";
 import { Badge } from "@/components/ui/badge";
 import { SourcesSection } from "@/components/sources-section";
 import { Button } from "@/components/ui/button";
-import { listSources } from "@/lib/api";
+import { getStats, listSources } from "@/lib/api";
 
 function formatDateTime(value: string | null): string {
   if (!value) return "Not collected yet";
@@ -21,6 +21,12 @@ function formatDateTime(value: string | null): string {
 
 export default async function HomePage() {
   const sources = await listSources({ limit: "40" }).catch(() => ({ items: [], page: 1, limit: 40, total: 0 }));
+  const stats = await getStats().catch(() => ({
+    total_sources: sources.total,
+    active_sources: sources.total,
+    total_feeds: 0,
+    feeds_last_24h: 0,
+  }));
   const latestFetchedAt = sources.items.reduce<string | null>((latest, source) => {
     if (!source.last_fetched_at) return latest;
     if (!latest) return source.last_fetched_at;
@@ -34,7 +40,7 @@ export default async function HomePage() {
           <div className="flex justify-center">
             <Badge variant="outline" className="rounded-sm px-4 py-2 text-[13px] font-medium tracking-normal">
               <Rss className="mr-2 h-3.5 w-3.5" />
-              Last fetched: {formatDateTime(latestFetchedAt)} · {sources.total} public sources
+              Last fetched: {formatDateTime(latestFetchedAt)} · {stats.active_sources} active sources · {stats.feeds_last_24h} feeds in the last 24h
             </Badge>
           </div>
 
@@ -79,7 +85,7 @@ export default async function HomePage() {
 
       <div className="space-y-20 px-6 md:px-10">
         <DocsSection id="docs" />
-        <SourcesSection id="sources" sources={sources.items} />
+        <SourcesSection id="sources" sources={sources.items} stats={stats} />
       </div>
     </SiteShell>
   );

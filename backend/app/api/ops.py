@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.core.config import get_settings
 from app.db.models import Feed, Source
+from app.services.alerts import summarize_alerts
+from app.services.api_keys import require_service_api_key
+from app.services.cache import response_cache
 
 router = APIRouter(prefix="/ops", tags=["ops"])
 
@@ -19,20 +22,6 @@ class SourceStatusUpdateRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=255)
 
 
-def require_ops_key(x_ops_key: str | None = Header(default=None)) -> None:
-    settings = get_settings()
-    if not settings.ops_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "ops_key_not_configured", "message": "Operations API key is not configured."},
-        )
-    if x_ops_key != settings.ops_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "invalid_ops_key", "message": "A valid operations API key is required."},
-        )
-
-
 @router.get(
     "/summary",
     summary="Operations summary",
@@ -40,6 +29,12 @@ def require_ops_key(x_ops_key: str | None = Header(default=None)) -> None:
 )
 def get_operations_summary(db: Session = Depends(get_session)) -> dict[str, object]:
     settings = get_settings()
+    cache_key = "ops:summary"
+    if settings.response_cache_enabled:
+        cached = response_cache.get_json(cache_key)
+        if cached is not None:
+            return cached
+
     now = datetime.now(UTC).replace(tzinfo=None)
     stale_before = now - timedelta(minutes=settings.collector_stale_after_minutes)
 
@@ -63,8 +58,17 @@ def get_operations_summary(db: Session = Depends(get_session)) -> dict[str, obje
     latest_feed_at = db.scalar(select(func.max(Feed.published_at)).select_from(Feed))
     latest_fetch_at = db.scalar(select(func.max(Source.last_fetched_at)).select_from(Source))
 
-    return {
-        "status": "ok",
+    overall_status, alerts = summarize_alerts(
+        failing_sources=source_counts["failing"],
+        stale_sources=source_counts["stale"],
+        latest_fetched_at=latest_fetch_at,
+        stale_sources_threshold=settings.ops_alert_stale_sources_threshold,
+        failing_sources_threshold=settings.ops_alert_failing_sources_threshold,
+        collector_lag_minutes=settings.ops_alert_collector_lag_minutes,
+    )
+
+    payload = {
+        "status": overall_status,
         "database": "ok",
         "time": now.replace(tzinfo=UTC).isoformat(),
         "sources": source_counts,
@@ -74,7 +78,21 @@ def get_operations_summary(db: Session = Depends(get_session)) -> dict[str, obje
             "stale_after_minutes": settings.collector_stale_after_minutes,
             "latest_fetched_at": latest_fetch_at,
         },
+        "alerts": alerts,
     }
+    if settings.response_cache_enabled:
+        response_cache.set_json(cache_key, payload, settings.response_cache_ttl_seconds)
+    return payload
+
+
+@router.get(
+    "/alerts",
+    summary="Operations alerts",
+    description="Return warning and critical operational alerts derived from source and collector health signals.",
+)
+def get_operations_alerts(db: Session = Depends(get_session)) -> dict[str, object]:
+    summary = get_operations_summary(db)
+    return {"status": summary["status"], "time": summary["time"], "alerts": summary["alerts"]}
 
 
 @router.get(
@@ -117,7 +135,7 @@ def list_operational_sources(
 def update_operational_source_status(
     source_id: str,
     payload: SourceStatusUpdateRequest,
-    _: None = Depends(require_ops_key),
+    _: None = Depends(require_service_api_key),
     db: Session = Depends(get_session),
 ) -> dict[str, object]:
     source = db.get(Source, source_id)

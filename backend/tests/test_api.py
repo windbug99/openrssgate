@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 from datetime import UTC, datetime, timedelta
 
+from app.services.cache import response_cache
+from app.services.rate_limit import read_rate_limiter, registration_rate_limiter
 from app.db.database import Base, SessionLocal, engine
 from app.db.models import Feed, Source
 from app.main import app
@@ -12,6 +14,9 @@ client = TestClient(app)
 def setup_function() -> None:
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    read_rate_limiter.reset()
+    registration_rate_limiter.reset()
+    response_cache.reset()
 
 
 def test_health_endpoint() -> None:
@@ -24,9 +29,55 @@ def test_ops_summary_endpoint() -> None:
     response = client.get("/v1/ops/summary")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "ok"
+    assert payload["status"] in {"ok", "critical"}
     assert "sources" in payload
     assert "collector" in payload
+
+
+def test_ops_alerts_endpoint_returns_warning_when_threshold_exceeded(monkeypatch) -> None:
+    from app.api import ops as ops_module
+
+    with SessionLocal() as db:
+        for index in range(3):
+            db.add(
+                Source(
+                    rss_url=f"https://fail-{index}.example.com/rss.xml",
+                    site_url=f"https://fail-{index}.example.com",
+                    title=f"Fail {index}",
+                    description="desc",
+                    status="active",
+                    registered_by="web",
+                    consecutive_fail_count=1,
+                    last_fetched_at=datetime.now(UTC) - timedelta(hours=4),
+                )
+            )
+        db.commit()
+
+    monkeypatch.setattr(
+        ops_module,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "collector_poll_interval_seconds": 300,
+                "collector_stale_after_minutes": 180,
+                "ops_alert_stale_sources_threshold": 2,
+                "ops_alert_failing_sources_threshold": 2,
+                "ops_alert_collector_lag_minutes": 500,
+                "response_cache_enabled": False,
+                "response_cache_ttl_seconds": 60,
+            },
+        )(),
+    )
+
+    response = client.get("/v1/ops/alerts")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "warning"
+    codes = {alert["code"] for alert in payload["alerts"]}
+    assert "stale_sources_high" in codes
+    assert "failing_sources_high" in codes
 
 
 def test_ops_sources_endpoint_lists_non_active_sources() -> None:
@@ -73,9 +124,13 @@ def test_ops_source_status_update_requires_key() -> None:
 
 
 def test_ops_source_status_update_succeeds_with_key(monkeypatch) -> None:
-    from app.api import ops as ops_module
+    from app.services import api_keys as api_keys_module
 
-    monkeypatch.setattr(ops_module, "get_settings", lambda: type("Settings", (), {"ops_api_key": "secret"})())
+    monkeypatch.setattr(
+        api_keys_module,
+        "get_settings",
+        lambda: type("Settings", (), {"ops_api_key": "secret", "service_api_keys": []})(),
+    )
 
     with SessionLocal() as db:
         source = Source(
@@ -102,6 +157,38 @@ def test_ops_source_status_update_succeeds_with_key(monkeypatch) -> None:
     assert payload["status_reason"] == "manual_restore"
 
 
+def test_ops_source_status_update_accepts_x_api_key(monkeypatch) -> None:
+    from app.services import api_keys as api_keys_module
+
+    monkeypatch.setattr(
+        api_keys_module,
+        "get_settings",
+        lambda: type("Settings", (), {"ops_api_key": None, "service_api_keys": ["service-secret"]})(),
+    )
+
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://example.com/moderate-3.xml",
+            site_url="https://example.com",
+            title="Moderate Source 3",
+            description="desc",
+            status="hidden",
+            status_reason="missing_description",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+        source_id = source.id
+
+    response = client.post(
+        f"/v1/ops/sources/{source_id}/status",
+        json={"status": "active", "reason": "manual_restore"},
+        headers={"X-API-Key": "service-secret"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "active"
+
+
 def test_mcp_tools_endpoint() -> None:
     response = client.get("/mcp/tools")
     assert response.status_code == 200
@@ -116,6 +203,57 @@ def test_openapi_contains_tag_metadata() -> None:
     payload = response.json()
     assert payload["info"]["title"] == "RSS Gateway"
     assert any(tag["name"] == "sources" for tag in payload["tags"])
+
+
+def test_stats_endpoint_counts_only_active_feeds() -> None:
+    now = datetime.now(UTC)
+    with SessionLocal() as db:
+        active_source = Source(
+            rss_url="https://active.example.com/rss.xml",
+            site_url="https://active.example.com",
+            title="Active Source",
+            description="desc",
+            status="active",
+            registered_by="web",
+        )
+        hidden_source = Source(
+            rss_url="https://hidden.example.com/rss.xml",
+            site_url="https://hidden.example.com",
+            title="Hidden Source",
+            description="desc",
+            status="hidden",
+            registered_by="web",
+        )
+        db.add_all([active_source, hidden_source])
+        db.commit()
+
+        db.add_all(
+            [
+                Feed(
+                    source_id=active_source.id,
+                    guid="active-1",
+                    title="Recent active entry",
+                    feed_url="https://active.example.com/1",
+                    published_at=now,
+                ),
+                Feed(
+                    source_id=hidden_source.id,
+                    guid="hidden-1",
+                    title="Recent hidden entry",
+                    feed_url="https://hidden.example.com/1",
+                    published_at=now,
+                ),
+            ]
+        )
+        db.commit()
+
+    response = client.get("/v1/stats")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_sources"] == 2
+    assert payload["active_sources"] == 1
+    assert payload["total_feeds"] == 1
+    assert payload["feeds_last_24h"] == 1
 
 
 def test_mcp_call_search_sources_endpoint() -> None:
@@ -146,6 +284,38 @@ def test_mcp_call_search_sources_endpoint() -> None:
     assert payload["result"]["items"][0]["title"] == "Example Source"
     assert payload["result"]["items"][0]["type"] == "blog"
     assert payload["result"]["items"][0]["categories"] == ["tech", "media"]
+
+
+def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/feed.xml",
+                "site_url": "https://example.com",
+                "title": "OpenAI Engineering Feed",
+                "description": "Deep analysis and tutorials about backend systems.",
+                "favicon_url": "https://example.com/favicon.ico",
+                "feed_format": "rss2",
+                "language": "en",
+                "type": "blog",
+                "categories": "tech,media",
+            },
+            "entries": [],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/feed.xml", "tags": []})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["valid"] is True
+    assert payload["site_url"] == "https://example.com"
+    assert payload["language"] == "en"
+    assert payload["type"] == "blog"
+    assert payload["categories"] == ["tech", "media"]
+    assert payload["tags"] == ["ai", "backend", "analysis"]
 
 
 def test_mcp_sse_endpoint_streams_manifest() -> None:
@@ -179,6 +349,167 @@ def test_create_source_is_rate_limited(monkeypatch) -> None:
 
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "rate_limited"
+
+
+def test_public_source_status_endpoint_requires_active_source() -> None:
+    stale_fetched_at = datetime.now(UTC) - timedelta(hours=3)
+    with SessionLocal() as db:
+        active_source = Source(
+            rss_url="https://status.example.com/rss.xml",
+            site_url="https://status.example.com",
+            title="Status Source",
+            description="desc",
+            status="active",
+            registered_by="web",
+            last_fetched_at=stale_fetched_at,
+            fetch_interval_minutes=30,
+            consecutive_fail_count=2,
+        )
+        hidden_source = Source(
+            rss_url="https://status-hidden.example.com/rss.xml",
+            site_url="https://status-hidden.example.com",
+            title="Hidden Status Source",
+            description="desc",
+            status="hidden",
+            registered_by="web",
+        )
+        db.add_all([active_source, hidden_source])
+        db.commit()
+        active_source_id = active_source.id
+        hidden_source_id = hidden_source.id
+
+    response = client.get(f"/v1/sources/{active_source_id}/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_id"] == active_source_id
+    assert payload["consecutive_fail_count"] == 2
+    assert payload["fetch_interval_minutes"] == 30
+    assert payload["is_stale"] is True
+
+    hidden_response = client.get(f"/v1/sources/{hidden_source_id}/status")
+    assert hidden_response.status_code == 404
+    assert hidden_response.json()["error"]["code"] == "source_not_found"
+
+
+def test_feeds_endpoint_supports_q_and_source_metadata_filters() -> None:
+    now = datetime.now(UTC)
+    with SessionLocal() as db:
+        ai_source = Source(
+            rss_url="https://ai.example.com/rss.xml",
+            site_url="https://ai.example.com",
+            title="AI Source",
+            description="desc",
+            language="en",
+            source_type="blog",
+            categories="tech",
+            tags="ai,analysis",
+            status="active",
+            registered_by="web",
+        )
+        other_source = Source(
+            rss_url="https://other.example.com/rss.xml",
+            site_url="https://other.example.com",
+            title="Other Source",
+            description="desc",
+            language="en",
+            source_type="news",
+            categories="business",
+            tags="review",
+            status="active",
+            registered_by="web",
+        )
+        db.add_all([ai_source, other_source])
+        db.commit()
+        db.add_all(
+            [
+                Feed(
+                    source_id=ai_source.id,
+                    guid="feed-1",
+                    title="OpenAI launches new model",
+                    feed_url="https://ai.example.com/1",
+                    published_at=now,
+                ),
+                Feed(
+                    source_id=other_source.id,
+                    guid="feed-2",
+                    title="Market closes higher",
+                    feed_url="https://other.example.com/1",
+                    published_at=now,
+                ),
+            ]
+        )
+        db.commit()
+
+    response = client.get("/v1/feeds?q=OpenAI&tag=ai&category=tech&type=blog")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["title"] == "OpenAI launches new model"
+
+
+def test_top_level_feed_detail_endpoint_returns_source_metadata() -> None:
+    now = datetime.now(UTC)
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://detail.example.com/rss.xml",
+            site_url="https://detail.example.com",
+            title="Detail Source",
+            description="desc",
+            language="ko",
+            source_type="blog",
+            categories="tech",
+            tags="ai",
+            status="active",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+        feed = Feed(
+            source_id=source.id,
+            guid="detail-1",
+            title="Detailed feed",
+            feed_url="https://detail.example.com/1",
+            published_at=now,
+        )
+        db.add(feed)
+        db.commit()
+        feed_id = feed.id
+        source_id = source.id
+
+    response = client.get(f"/v1/feeds/{feed_id}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == feed_id
+    assert payload["source"]["id"] == source_id
+    assert payload["source"]["title"] == "Detail Source"
+
+    nested_response = client.get(f"/v1/sources/{source_id}/feeds/{feed_id}")
+    assert nested_response.status_code == 200
+    assert nested_response.json()["source"]["id"] == source_id
+
+
+def test_public_read_rate_limit_returns_429() -> None:
+    from app import main as main_module
+
+    original_enabled = main_module.settings.public_read_rate_limit_enabled
+    original_window = main_module.settings.public_read_window_seconds
+    original_max = main_module.settings.public_read_max_requests
+
+    main_module.settings.public_read_rate_limit_enabled = True
+    main_module.settings.public_read_window_seconds = 60
+    main_module.settings.public_read_max_requests = 1
+
+    try:
+        first = client.get("/v1/stats")
+        second = client.get("/v1/stats")
+    finally:
+        main_module.settings.public_read_rate_limit_enabled = original_enabled
+        main_module.settings.public_read_window_seconds = original_window
+        main_module.settings.public_read_max_requests = original_max
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["error"]["code"] == "rate_limited"
 
 
 def test_create_source_can_be_hidden_after_review(monkeypatch) -> None:

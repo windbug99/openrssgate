@@ -11,8 +11,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "openrssgate=rssgate.main:_run",
-            "rssgate=rssgate.main:_run",
+            "openrssgate=openrssgate.main:_run",
         ]
     },
 )

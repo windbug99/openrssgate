@@ -1,0 +1,57 @@
+name: Publish OpenRSSGate Homebrew Formula
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "CLI version (for example 0.1.0)"
+        required: true
+      formula_artifact_run_id:
+        description: "GitHub Actions run id that produced the openrssgate-homebrew-formula artifact"
+        required: true
+
+jobs:
+  publish-formula:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download formula artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ github.event.inputs.formula_artifact_run_id }}
+          name: openrssgate-homebrew-formula
+          path: cli/homebrew-artifact
+
+      - name: Check out tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.OPENRSSGATE_HOMEBREW_TAP_REPOSITORY }}
+          token: ${{ secrets.OPENRSSGATE_HOMEBREW_TAP_TOKEN }}
+          path: tap-repo
+
+      - name: Copy formula into tap checkout
+        run: |
+          python3 cli/homebrew/publish_formula.py \
+            --formula cli/homebrew-artifact/openrssgate.rb \
+            --tap-repo tap-repo
+
+      - name: Commit and push formula update
+        working-directory: tap-repo
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          git config user.name "openrssgate-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add Formula/openrssgate.rb
+          if git diff --cached --quiet; then
+            echo "No formula changes to publish."
+            exit 0
+          fi
+          git commit -m "openrssgate ${VERSION}"
+          git push

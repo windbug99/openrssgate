@@ -27,6 +27,40 @@ export type Feed = {
   published_at: string | null;
 };
 
+export type FeedDetail = Feed & {
+  source: {
+    id: string;
+    title: string;
+    site_url: string;
+    rss_url: string;
+    language: LanguageCode | null;
+    type: SourceType | null;
+    categories: SourceCategory[];
+    tags: SourceTag[];
+  };
+};
+
+export type Stats = {
+  total_sources: number;
+  active_sources: number;
+  total_feeds: number;
+  feeds_last_24h: number;
+};
+
+export type SourceValidation = {
+  valid: boolean;
+  rss_url: string;
+  site_url: string;
+  title: string;
+  description: string | null;
+  favicon_url: string | null;
+  language: LanguageCode | null;
+  type: SourceType | null;
+  categories: SourceCategory[];
+  tags: SourceTag[];
+  feed_format: string | null;
+};
+
 type SourceListResponse = {
   items: Source[];
   page: number;
@@ -79,6 +113,27 @@ export async function listFeeds(params?: Record<string, string | undefined>): Pr
   });
   const query = search.toString();
   return request<FeedListResponse>(`/feeds${query ? `?${query}` : ""}`);
+}
+
+export async function getFeed(feedId: string): Promise<FeedDetail> {
+  return request<FeedDetail>(`/feeds/${feedId}`);
+}
+
+export async function getStats(): Promise<Stats> {
+  return request<Stats>("/stats");
+}
+
+export async function validateSource(payload: {
+  rss_url: string;
+  language?: LanguageCode;
+  type?: SourceType;
+  categories?: SourceCategory[];
+  tags?: SourceTag[];
+}): Promise<SourceValidation> {
+  return request<SourceValidation>("/sources/validate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function createSource(payload: {

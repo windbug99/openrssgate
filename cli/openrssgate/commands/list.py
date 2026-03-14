@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typer
 
-from rssgate.client import RSSGatewayClient, format_json
+from openrssgate.client import OpenRSSGateClient, format_json
 
 
 def register(app: typer.Typer) -> None:
@@ -17,7 +17,7 @@ def register(app: typer.Typer) -> None:
         limit: int = typer.Option(default=20, min=1, max=100),
         json_output: bool = typer.Option(False, "--json"),
     ) -> None:
-        client = RSSGatewayClient()
+        client = OpenRSSGateClient()
         payload = client.list_sources(
             keyword=keyword,
             language=lang,

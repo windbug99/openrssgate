@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -9,15 +10,33 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
 from app.core.config import get_settings
-from app.db.models import Source
-from app.schemas.source import SourceCreate, SourceListResponse, SourceResponse
-from app.source_metadata import csv_contains, join_csv, parse_csv
+from app.db.models import Feed, Source
+from app.schemas.source import (
+    SourceCreate,
+    SourceListResponse,
+    SourceResponse,
+    SourceStatusResponse,
+    SourceValidateResponse,
+    StatsResponse,
+)
+from app.source_metadata import (
+    LANGUAGE_VALUES,
+    MAX_SOURCE_TAGS,
+    SOURCE_CATEGORY_VALUES,
+    SOURCE_TAG_VALUES,
+    SOURCE_TYPE_VALUES,
+    csv_contains,
+    join_csv,
+    parse_csv,
+)
+from app.services.cache import response_cache
 from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
 from app.services.review import review_source_bundle
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 
 router = APIRouter(prefix="/sources", tags=["sources"])
+public_router = APIRouter(tags=["sources"])
 
 
 def _request_ip(request: Request) -> str:
@@ -62,6 +81,78 @@ def _to_source_response(source: Source) -> SourceResponse:
         last_fetched_at=source.last_fetched_at,
         last_published_at=source.last_published_at,
     )
+
+
+def _is_source_stale(source: Source) -> bool:
+    if source.last_fetched_at is None:
+        return True
+
+    fetched_at = source.last_fetched_at
+    if fetched_at.tzinfo is None:
+        fetched_at = fetched_at.replace(tzinfo=UTC)
+
+    window_minutes = max(source.fetch_interval_minutes * 2, 60)
+    return fetched_at < datetime.now(UTC) - timedelta(minutes=window_minutes)
+
+
+def _detect_tags(metadata: dict[str, object], payload_tags: list[str]) -> list[str]:
+    if payload_tags:
+        return payload_tags
+
+    text = " ".join(
+        str(part).strip().lower()
+        for part in (metadata.get("title"), metadata.get("description"))
+        if str(part or "").strip()
+    )
+    if not text:
+        return []
+
+    keyword_map = {
+        "ai": (" ai ", "openai", "artificial intelligence", "llm", "gpt"),
+        "opensource": ("open source", "opensource", "oss"),
+        "startup": ("startup", "founder", "venture"),
+        "investing": ("invest", "investing", "stocks", "markets"),
+        "economy": ("economy", "economic", "macro"),
+        "programming": ("programming", "coding", "software development"),
+        "webdev": ("web dev", "webdev", "javascript", "css", "html"),
+        "mobile": ("mobile", "ios", "android"),
+        "backend": ("backend", "api", "server"),
+        "frontend": ("frontend", "front-end", "ui engineering"),
+        "devops": ("devops", "sre", "infrastructure", "ci/cd"),
+        "cloud": ("cloud", "aws", "gcp", "azure"),
+        "cybersecurity": ("security", "cybersecurity", "infosec"),
+        "data": ("data", "analytics", "database"),
+        "machine-learning": ("machine learning", "ml", "neural", "deep learning"),
+        "product": ("product", "pm"),
+        "ux": ("ux", "user experience", "design systems"),
+        "marketing": ("marketing", "growth", "seo"),
+        "leadership": ("leadership", "management"),
+        "career": ("career", "hiring", "job"),
+        "productivity": ("productivity", "workflow", "habits"),
+        "analysis": ("analysis", "analyst", "breakdown"),
+        "tutorial": ("tutorial", "guide", "how to"),
+        "opinion": ("opinion", "essay", "commentary"),
+        "review": ("review", "hands-on"),
+        "interview": ("interview",),
+        "curation": ("curation", "roundup", "links"),
+        "daily": ("daily",),
+        "weekly": ("weekly",),
+        "local": ("local",),
+        "global": ("global", "international"),
+        "beginner": ("beginner", "intro"),
+        "advanced": ("advanced", "deep dive"),
+    }
+
+    padded = f" {text} "
+    matches: list[str] = []
+    for tag, keywords in keyword_map.items():
+        if tag not in SOURCE_TAG_VALUES:
+            continue
+        if any(keyword in padded for keyword in keywords):
+            matches.append(tag)
+        if len(matches) >= MAX_SOURCE_TAGS:
+            break
+    return matches
 
 
 @router.get(
@@ -110,6 +201,61 @@ def list_sources(
         page=page,
         limit=limit,
         total=total,
+    )
+
+
+@router.post(
+    "/validate",
+    response_model=SourceValidateResponse,
+    summary="Validate a source URL",
+    description="Validate an RSS URL before registration and return detected source metadata without writing to the database.",
+    responses={400: {"description": "Invalid or unreachable RSS URL"}},
+)
+async def validate_source(payload: SourceCreate) -> SourceValidateResponse:
+    _validate_registration_payload(payload)
+
+    try:
+        bundle = await fetch_feed_bundle(str(payload.rss_url))
+    except InvalidRSSUrlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_rss_url", "message": str(exc)},
+        ) from exc
+
+    metadata = bundle["metadata"]
+    language = payload.language
+    if language is None:
+        detected_language = str(metadata.get("language") or "").strip().lower()
+        if detected_language in LANGUAGE_VALUES:
+            language = detected_language
+
+    source_type = payload.type
+    if source_type is None:
+        detected_type = str(metadata.get("type") or "").strip().lower()
+        if detected_type in SOURCE_TYPE_VALUES:
+            source_type = detected_type
+
+    categories = payload.categories
+    if not categories:
+        detected_categories = [
+            value.strip().lower()
+            for value in str(metadata.get("categories") or "").split(",")
+            if value.strip().lower() in SOURCE_CATEGORY_VALUES
+        ]
+        categories = list(dict.fromkeys(detected_categories))
+
+    return SourceValidateResponse(
+        valid=True,
+        rss_url=str(metadata.get("rss_url") or payload.rss_url),
+        site_url=str(metadata.get("site_url") or ""),
+        title=str(metadata.get("title") or ""),
+        description=metadata.get("description"),
+        favicon_url=metadata.get("favicon_url"),
+        language=language,
+        type=source_type,
+        categories=categories,
+        tags=_detect_tags(metadata, payload.tags),
+        feed_format=str(metadata.get("feed_format") or "") or None,
     )
 
 
@@ -220,3 +366,64 @@ def get_source(source_id: str, db: Session = Depends(get_session)) -> SourceResp
             detail={"code": "source_not_found", "message": "Source not found."},
         )
     return _to_source_response(source)
+
+
+@router.get(
+    "/{source_id}/status",
+    response_model=SourceStatusResponse,
+    summary="Get source collection status",
+    description="Return public collection health metadata for a single active source.",
+    responses={404: {"description": "Source not found"}},
+)
+def get_source_status(source_id: str, db: Session = Depends(get_session)) -> SourceStatusResponse:
+    source = db.get(Source, source_id)
+    if not source or source.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "source_not_found", "message": "Source not found."},
+        )
+
+    return SourceStatusResponse(
+        source_id=source.id,
+        last_fetched_at=source.last_fetched_at,
+        last_published_at=source.last_published_at,
+        consecutive_fail_count=source.consecutive_fail_count,
+        fetch_interval_minutes=source.fetch_interval_minutes,
+        is_stale=_is_source_stale(source),
+    )
+
+
+@public_router.get(
+    "/stats",
+    response_model=StatsResponse,
+    summary="Get gateway stats",
+    description="Return lightweight public stats about indexed sources and feeds.",
+)
+def get_stats(db: Session = Depends(get_session)) -> StatsResponse:
+    settings = get_settings()
+    cache_key = "stats:public"
+    if settings.response_cache_enabled:
+        cached = response_cache.get_json(cache_key)
+        if cached is not None:
+            return StatsResponse.model_validate(cached)
+
+    now = datetime.now(UTC)
+    last_24h = now - timedelta(hours=24)
+
+    payload = StatsResponse(
+        total_sources=db.scalar(select(func.count()).select_from(Source)) or 0,
+        active_sources=db.scalar(select(func.count()).select_from(Source).where(Source.status == "active")) or 0,
+        total_feeds=db.scalar(select(func.count()).select_from(Feed).join(Source).where(Source.status == "active")) or 0,
+        feeds_last_24h=(
+            db.scalar(
+                select(func.count())
+                .select_from(Feed)
+                .join(Source)
+                .where(Source.status == "active", Feed.published_at >= last_24h)
+            )
+            or 0
+        ),
+    )
+    if settings.response_cache_enabled:
+        response_cache.set_json(cache_key, payload.model_dump(mode="json"), settings.response_cache_ttl_seconds)
+    return payload

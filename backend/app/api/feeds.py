@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
 from app.db.models import Feed, Source
-from app.schemas.feed import FeedListResponse, FeedResponse
+from app.schemas.feed import FeedDetailResponse, FeedListResponse, FeedResponse, FeedSourceSummary
+from app.source_metadata import csv_contains, parse_csv
 
 router = APIRouter(tags=["feeds"])
 
@@ -37,6 +38,27 @@ def _parse_since(value: str | None) -> datetime | None:
     return datetime.now(timezone.utc) - delta
 
 
+def _to_feed_detail_response(feed: Feed, source: Source) -> FeedDetailResponse:
+    return FeedDetailResponse(
+        id=feed.id,
+        source_id=feed.source_id,
+        guid=feed.guid,
+        title=feed.title,
+        feed_url=feed.feed_url,
+        published_at=feed.published_at,
+        source=FeedSourceSummary(
+            id=source.id,
+            title=source.title,
+            site_url=source.site_url,
+            rss_url=source.rss_url,
+            language=source.language,
+            type=source.source_type,
+            categories=parse_csv(source.categories),
+            tags=parse_csv(source.tags),
+        ),
+    )
+
+
 @router.get(
     "/feeds",
     response_model=FeedListResponse,
@@ -47,6 +69,10 @@ def _parse_since(value: str | None) -> datetime | None:
 def list_feeds(
     source_id: str | None = None,
     language: str | None = None,
+    type: str | None = None,
+    category: str | None = None,
+    tag: str | None = None,
+    q: str | None = None,
     since: str | None = None,
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
@@ -63,6 +89,19 @@ def list_feeds(
     if language:
         query = query.where(Source.language == language)
         count_query = count_query.where(Source.language == language)
+    if type:
+        query = query.where(Source.source_type == type)
+        count_query = count_query.where(Source.source_type == type)
+    if category:
+        query = query.where(csv_contains(Source.categories, category))
+        count_query = count_query.where(csv_contains(Source.categories, category))
+    if tag:
+        query = query.where(csv_contains(Source.tags, tag))
+        count_query = count_query.where(csv_contains(Source.tags, tag))
+    if q:
+        pattern = f"%{q}%"
+        query = query.where(Feed.title.ilike(pattern))
+        count_query = count_query.where(Feed.title.ilike(pattern))
     if since_dt:
         query = query.where(Feed.published_at >= since_dt)
         count_query = count_query.where(Feed.published_at >= since_dt)
@@ -77,6 +116,26 @@ def list_feeds(
         limit=limit,
         total=total,
     )
+
+
+@router.get(
+    "/feeds/{feed_id}",
+    response_model=FeedDetailResponse,
+    summary="Get one feed entry",
+    description="Return a single feed entry from an active source using a top-level feed id lookup.",
+    responses={404: {"description": "Feed not found"}},
+)
+def get_feed(feed_id: str, db: Session = Depends(get_session)) -> FeedDetailResponse:
+    query = select(Feed, Source).join(Source).where(Source.status == "active", Feed.id == feed_id)
+    row = db.execute(query).first()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "feed_not_found", "message": "Feed not found."},
+        )
+
+    feed, source = row
+    return _to_feed_detail_response(feed, source)
 
 
 @router.get(
@@ -114,17 +173,18 @@ def list_source_feeds(
 
 @router.get(
     "/sources/{source_id}/feeds/{feed_id}",
-    response_model=FeedResponse,
+    response_model=FeedDetailResponse,
     summary="Get one feed entry",
     description="Return a single feed entry from an active source.",
     responses={404: {"description": "Feed not found"}},
 )
-def get_source_feed(source_id: str, feed_id: str, db: Session = Depends(get_session)) -> FeedResponse:
-    query = select(Feed).join(Source).where(Source.status == "active", Feed.source_id == source_id, Feed.id == feed_id)
-    feed = db.scalar(query)
-    if not feed:
+def get_source_feed(source_id: str, feed_id: str, db: Session = Depends(get_session)) -> FeedDetailResponse:
+    query = select(Feed, Source).join(Source).where(Source.status == "active", Feed.source_id == source_id, Feed.id == feed_id)
+    row = db.execute(query).first()
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "feed_not_found", "message": "Feed not found."},
         )
-    return FeedResponse.model_validate(feed)
+    feed, source = row
+    return _to_feed_detail_response(feed, source)

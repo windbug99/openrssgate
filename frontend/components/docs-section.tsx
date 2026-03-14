@@ -29,7 +29,7 @@ const mcpInfo = [
 ];
 
 const cliInfo = [
-  "export RSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1",
+  "export OPENRSSGATE_API_BASE_URL=https://openrssgate-production.up.railway.app/v1",
   "openrssgate list",
   "openrssgate feeds --since 7d",
 ];

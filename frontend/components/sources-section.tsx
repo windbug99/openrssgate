@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, Database, Filter, Search } from "lucide-react";
+import { ArrowUpDown, Database, Filter, Search, Signal } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -8,7 +8,7 @@ import { SourceCard } from "@/components/source-card";
 import { SourceRegisterDialog } from "@/components/source-register-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Source } from "@/lib/api";
+import type { Source, Stats } from "@/lib/api";
 import {
   LANGUAGE_LABELS,
   LANGUAGE_OPTIONS,
@@ -23,7 +23,11 @@ import {
 
 type SortKey = "registered_desc" | "published_desc" | "title_asc";
 
-export function SourcesSection({ id, sources }: { id?: string; sources: Source[] }) {
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+export function SourcesSection({ id, sources, stats }: { id?: string; sources: Source[]; stats: Stats }) {
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<LanguageCode | "all">("all");
   const [type, setType] = useState<SourceType | "all">("all");
@@ -101,66 +105,87 @@ export function SourcesSection({ id, sources }: { id?: string; sources: Source[]
             RSS URL from the same list view.
           </p>
         </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="border border-border/80 bg-card/20 px-4 py-4">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <Signal className="h-4 w-4" />
+              Active sources
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(stats.active_sources)}</div>
+          </div>
+          <div className="border border-border/80 bg-card/20 px-4 py-4">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Indexed feeds</div>
+            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(stats.total_feeds)}</div>
+          </div>
+          <div className="border border-border/80 bg-card/20 px-4 py-4">
+            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Feeds last 24h</div>
+            <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(stats.feeds_last_24h)}</div>
+          </div>
+        </div>
       </div>
 
       <div className="px-6 md:px-10">
-        <div className="grid gap-0 border border-border/80 bg-card/30 md:grid-cols-[minmax(0,1.4fr)_180px_180px_180px_220px_auto]">
-          <label className="relative block border-b border-border/80 focus-within:outline focus-within:outline-1 focus-within:outline-border focus-within:outline-offset-[-1px] md:border-b-0 md:border-r">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="h-12 rounded-none border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0"
-              placeholder="Search title, description, tag"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+        <div className="border border-border/80 bg-card/30">
+          <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_260px]">
+            <label className="relative block border-b border-border/80 focus-within:outline focus-within:outline-1 focus-within:outline-border focus-within:outline-offset-[-1px] md:border-b-0 md:border-r">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-12 rounded-none border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0"
+                placeholder="Search title, description, tag"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+
+            <div className="flex">
+              <SourceRegisterDialog
+                trigger={
+                  <Button
+                    type="button"
+                    className="h-12 w-full rounded-none border-0 bg-foreground px-5 text-background hover:bg-foreground/95"
+                  >
+                    Add source
+                  </Button>
+                }
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-0 border-t border-border/80 md:grid-cols-4">
+            <FilterDropdown
+              value={language}
+              onChange={(value) => setLanguage(value as LanguageCode | "all")}
+              options={languageOptions}
+              placeholder="All languages"
+              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+              className="relative border-b border-border/80 md:border-b-0 md:border-r"
             />
-          </label>
 
-          <FilterDropdown
-            value={language}
-            onChange={(value) => setLanguage(value as LanguageCode | "all")}
-            options={languageOptions}
-            placeholder="All languages"
-            icon={<Filter className="h-4 w-4 text-muted-foreground" />}
-            className="relative border-b border-border/80 md:border-b-0 md:border-r"
-          />
+            <FilterDropdown
+              value={type}
+              onChange={(value) => setType(value as SourceType | "all")}
+              options={typeOptions}
+              placeholder="All types"
+              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+              className="relative border-b border-border/80 md:border-b-0 md:border-r"
+            />
 
-          <FilterDropdown
-            value={type}
-            onChange={(value) => setType(value as SourceType | "all")}
-            options={typeOptions}
-            placeholder="All types"
-            icon={<Filter className="h-4 w-4 text-muted-foreground" />}
-            className="relative border-b border-border/80 md:border-b-0 md:border-r"
-          />
+            <FilterDropdown
+              value={category}
+              onChange={(value) => setCategory(value as SourceCategory | "all")}
+              options={categoryOptions}
+              placeholder="All categories"
+              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
+              className="relative border-b border-border/80 md:border-b-0 md:border-r"
+            />
 
-          <FilterDropdown
-            value={category}
-            onChange={(value) => setCategory(value as SourceCategory | "all")}
-            options={categoryOptions}
-            placeholder="All categories"
-            icon={<Filter className="h-4 w-4 text-muted-foreground" />}
-            className="relative border-b border-border/80 md:border-b-0 md:border-r"
-          />
-
-          <FilterDropdown
-            value={sortKey}
-            onChange={setSortKey}
-            options={sortOptions}
-            placeholder="Sort"
-            icon={<ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
-            className="relative border-b border-border/80 md:border-b-0 md:border-r"
-          />
-
-          <div className="flex">
-            <SourceRegisterDialog
-              trigger={
-                <Button
-                  type="button"
-                  className="h-12 w-full rounded-none border-0 bg-foreground px-5 text-background hover:bg-foreground/95"
-                >
-                  Add source
-                </Button>
-              }
+            <FilterDropdown
+              value={sortKey}
+              onChange={setSortKey}
+              options={sortOptions}
+              placeholder="Sort"
+              icon={<ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+              className="relative"
             />
           </div>
         </div>

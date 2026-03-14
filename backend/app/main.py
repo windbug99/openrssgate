@@ -6,15 +6,19 @@ from fastapi.responses import JSONResponse
 
 from app.api.feeds import router as feeds_router
 from app.api.ops import router as ops_router
+from app.api.sources import public_router as public_sources_router
 from app.api.sources import router as sources_router
 from app.mcp.server import router as mcp_router
 from app.core.config import get_settings
+from app.services.cache import response_cache
+from app.services.rate_limit import RateLimitExceededError, read_rate_limiter
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    response_cache.configure(settings.redis_url if settings.response_cache_enabled else None)
     yield
 
 app = FastAPI(
@@ -52,7 +56,43 @@ async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+
+def _request_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _is_public_read_path(path: str) -> bool:
+    if not path.startswith(settings.api_prefix):
+        return False
+    if path.startswith(f"{settings.api_prefix}/ops"):
+        return False
+    if path.startswith(f"{settings.api_prefix}/sources") or path.startswith(f"{settings.api_prefix}/feeds"):
+        return True
+    return path == f"{settings.api_prefix}/stats"
+
+
+@app.middleware("http")
+async def public_read_rate_limit_middleware(request: Request, call_next):
+    if request.method == "GET" and settings.public_read_rate_limit_enabled and _is_public_read_path(request.url.path):
+        try:
+            read_rate_limiter.enforce(
+                ip=_request_ip(request),
+                path=request.url.path,
+                window_seconds=settings.public_read_window_seconds,
+                max_attempts=settings.public_read_max_requests,
+            )
+        except RateLimitExceededError as exc:
+            return JSONResponse(
+                status_code=429,
+                content={"error": {"code": "rate_limited", "message": str(exc)}},
+            )
+    return await call_next(request)
+
 app.include_router(sources_router, prefix=settings.api_prefix)
+app.include_router(public_sources_router, prefix=settings.api_prefix)
 app.include_router(feeds_router, prefix=settings.api_prefix)
 app.include_router(ops_router, prefix=settings.api_prefix)
 app.include_router(mcp_router)

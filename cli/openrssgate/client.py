@@ -5,20 +5,20 @@ from typing import Any
 
 import httpx
 
-from rssgate.config import get_api_base_url
+from openrssgate.config import get_api_base_url
 
 
 class ApiError(RuntimeError):
     pass
 
 
-class RSSGatewayClient:
+class OpenRSSGateClient:
     def __init__(self, base_url: str | None = None) -> None:
         self.base_url = (base_url or get_api_base_url()).rstrip("/")
 
-    def _request(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    def _request(self, path: str, *, method: str = "GET", params: dict[str, Any] | None = None, json_body: Any = None) -> Any:
         try:
-            response = httpx.get(f"{self.base_url}{path}", params=params, timeout=10.0)
+            response = httpx.request(method, f"{self.base_url}{path}", params=params, json=json_body, timeout=10.0)
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             payload = exc.response.json() if exc.response.headers.get("content-type", "").startswith("application/json") else {}
@@ -33,6 +33,16 @@ class RSSGatewayClient:
 
     def list_feeds(self, **params: Any) -> dict[str, Any]:
         return self._request("/feeds", params=params)
+
+    def get_feed(self, feed_id: str) -> dict[str, Any]:
+        return self._request(f"/feeds/{feed_id}")
+
+    def get_stats(self) -> dict[str, Any]:
+        return self._request("/stats")
+
+    def validate_source(self, rss_url: str, **params: Any) -> dict[str, Any]:
+        payload = {"rss_url": rss_url, **params}
+        return self._request("/sources/validate", method="POST", json_body=payload)
 
 
 def format_json(payload: Any) -> str:

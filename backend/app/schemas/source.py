@@ -98,3 +98,33 @@ class SourceListResponse(BaseModel):
     page: int
     limit: int
     total: int
+
+
+class SourceValidateResponse(BaseModel):
+    valid: bool
+    rss_url: str
+    site_url: str
+    title: str
+    description: str | None
+    favicon_url: str | None
+    language: str | None
+    type: str | None
+    categories: list[str]
+    tags: list[str]
+    feed_format: str | None
+
+
+class SourceStatusResponse(BaseModel):
+    source_id: str
+    last_fetched_at: datetime | None
+    last_published_at: datetime | None
+    consecutive_fail_count: int
+    fetch_interval_minutes: int
+    is_stale: bool
+
+
+class StatsResponse(BaseModel):
+    total_sources: int
+    active_sources: int
+    total_feeds: int
+    feeds_last_24h: int

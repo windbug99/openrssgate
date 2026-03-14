@@ -9,27 +9,23 @@ class RateLimitExceededError(RuntimeError):
     pass
 
 
-class RegistrationRateLimiter:
+class SlidingWindowRateLimiter:
     def __init__(self) -> None:
         self._lock = Lock()
-        self._attempts_by_ip: dict[str, deque[float]] = defaultdict(deque)
-        self._attempts_by_ip_host: dict[tuple[str, str], deque[float]] = defaultdict(deque)
+        self._attempts_by_key: dict[tuple[str, ...], deque[float]] = defaultdict(deque)
 
-    def enforce(self, *, ip: str, host: str, window_seconds: int, max_attempts: int, max_same_host: int) -> None:
+    def enforce(self, *, key: tuple[str, ...], window_seconds: int, max_attempts: int, message: str) -> None:
         now = monotonic()
         with self._lock:
-            ip_attempts = self._attempts_by_ip[ip]
-            self._prune(ip_attempts, now, window_seconds)
-            if len(ip_attempts) >= max_attempts:
-                raise RateLimitExceededError("Too many source registration attempts. Please try again later.")
+            attempts = self._attempts_by_key[key]
+            self._prune(attempts, now, window_seconds)
+            if len(attempts) >= max_attempts:
+                raise RateLimitExceededError(message)
+            attempts.append(now)
 
-            host_attempts = self._attempts_by_ip_host[(ip, host)]
-            self._prune(host_attempts, now, window_seconds)
-            if len(host_attempts) >= max_same_host:
-                raise RateLimitExceededError("Too many registrations for the same host. Please try again later.")
-
-            ip_attempts.append(now)
-            host_attempts.append(now)
+    def reset(self) -> None:
+        with self._lock:
+            self._attempts_by_key.clear()
 
     @staticmethod
     def _prune(queue: deque[float], now: float, window_seconds: int) -> None:
@@ -38,4 +34,43 @@ class RegistrationRateLimiter:
             queue.popleft()
 
 
+class RegistrationRateLimiter:
+    def __init__(self) -> None:
+        self._limiter = SlidingWindowRateLimiter()
+
+    def enforce(self, *, ip: str, host: str, window_seconds: int, max_attempts: int, max_same_host: int) -> None:
+        self._limiter.enforce(
+            key=("registration-ip", ip),
+            window_seconds=window_seconds,
+            max_attempts=max_attempts,
+            message="Too many source registration attempts. Please try again later.",
+        )
+        self._limiter.enforce(
+            key=("registration-ip-host", ip, host),
+            window_seconds=window_seconds,
+            max_attempts=max_same_host,
+            message="Too many registrations for the same host. Please try again later.",
+        )
+
+    def reset(self) -> None:
+        self._limiter.reset()
+
+
+class ReadRateLimiter:
+    def __init__(self) -> None:
+        self._limiter = SlidingWindowRateLimiter()
+
+    def enforce(self, *, ip: str, path: str, window_seconds: int, max_attempts: int) -> None:
+        self._limiter.enforce(
+            key=("read-ip-path", ip, path),
+            window_seconds=window_seconds,
+            max_attempts=max_attempts,
+            message="Too many read requests. Please try again later.",
+        )
+
+    def reset(self) -> None:
+        self._limiter.reset()
+
+
 registration_rate_limiter = RegistrationRateLimiter()
+read_rate_limiter = ReadRateLimiter()
