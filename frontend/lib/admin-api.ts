@@ -58,10 +58,10 @@ export type AdminRecoveryCodesResponse = {
   recovery_codes: string[];
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/v1";
+const ADMIN_API_BASE_URL = "/api/admin";
 
 async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${ADMIN_API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

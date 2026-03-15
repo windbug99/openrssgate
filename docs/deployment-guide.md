@@ -90,7 +90,7 @@ Required environment variables:
 NEXT_PUBLIC_API_BASE_URL=https://your-railway-api-domain/v1
 ```
 
-The included `frontend/vercel.json` is enough for the current Next.js app.
+The included `frontend/vercel.json` is enough for the current Next.js app. Admin auth requests are proxied through the frontend under `/api/admin/*`, so admin cookies are issued on the frontend origin instead of the Railway API origin.
 
 Reference file:
 
