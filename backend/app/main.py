@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.feeds import router as feeds_router
+from app.api.admin import router as admin_router
 from app.api.ops import router as ops_router
 from app.api.sources import public_router as public_sources_router
 from app.api.sources import router as sources_router
@@ -32,6 +33,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "sources", "description": "Public source registration and source discovery endpoints."},
         {"name": "feeds", "description": "Public feed listing endpoints backed by the indexed source set."},
+        {"name": "admin", "description": "Protected admin authentication and source moderation endpoints."},
         {"name": "mcp", "description": "Read-only MCP-compatible manifest, SSE, and tool call endpoints."},
     ],
     swagger_ui_parameters={"defaultModelsExpandDepth": -1},
@@ -39,8 +41,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allowed_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -95,4 +97,5 @@ app.include_router(sources_router, prefix=settings.api_prefix)
 app.include_router(public_sources_router, prefix=settings.api_prefix)
 app.include_router(feeds_router, prefix=settings.api_prefix)
 app.include_router(ops_router, prefix=settings.api_prefix)
+app.include_router(admin_router, prefix=settings.api_prefix)
 app.include_router(mcp_router)

@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash-lite"
     gemini_timeout_seconds: float = 5.0
+    admin_bootstrap_email: str | None = None
+    admin_bootstrap_password: str | None = None
+    admin_session_ttl_hours: int = 24
+    admin_session_cookie_name: str = "openrssgate_admin_session"
+    admin_session_cookie_secure: bool = False
+    admin_cookie_domain: str | None = None
+    admin_state_cookie_name: str = "openrssgate_admin_state"
 
     model_config = SettingsConfigDict(
         env_file=".env",

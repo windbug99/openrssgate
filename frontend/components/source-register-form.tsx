@@ -1,5 +1,6 @@
 "use client";
 
+import { OctagonX } from "lucide-react";
 import { useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -250,6 +251,14 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       <div className="space-y-2">
         <p className="text-[0.95rem] leading-7 text-muted-foreground">
           Register the RSS URL and classify the source with controlled options for language, type, categories, and tags.
+        </p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <OctagonX className="h-4 w-4 text-amber-500" />
+            </span>
+            <span>Spam, strongly promotional, sexually explicit, and illegal sources are excluded from the index.</span>
+          </span>
         </p>
       </div>
       {createdSource ? (

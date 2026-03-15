@@ -190,6 +190,95 @@ def test_ops_source_status_update_accepts_x_api_key(monkeypatch) -> None:
     assert response.json()["status"] == "active"
 
 
+def test_admin_auth_login_setup_and_review_flow(monkeypatch) -> None:
+    from app.services import admin_auth as admin_auth_module
+
+    monkeypatch.setattr(
+        admin_auth_module,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "admin_bootstrap_email": "admin@example.com",
+                "admin_bootstrap_password": "super-secret-123",
+                "admin_session_ttl_hours": 24,
+            },
+        )(),
+    )
+
+    login_response = client.post(
+        "/v1/admin/auth/login",
+        json={"email": "admin@example.com", "password": "super-secret-123"},
+    )
+    assert login_response.status_code == 200
+    login_payload = login_response.json()
+    assert login_payload["requires_totp_setup"] is True
+    assert "openrssgate_admin_session=" in login_response.headers["set-cookie"]
+    assert "openrssgate_admin_state=pending" in login_response.headers.get("set-cookie", "")
+
+    setup_response = client.post("/v1/admin/auth/totp/setup")
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+    otp_code = admin_auth_module._totp_at(secret, int(datetime.now(UTC).timestamp()))
+
+    verify_response = client.post(
+        "/v1/admin/auth/totp/verify",
+        json={"code": otp_code},
+    )
+    assert verify_response.status_code == 200
+    assert "openrssgate_admin_state=verified" in verify_response.headers.get("set-cookie", "")
+    recovery_codes = verify_response.json()["recovery_codes"]
+    assert verify_response.json()["user"]["totp_enabled"] is True
+    assert len(recovery_codes) == 8
+
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://review.example.com/feed.xml",
+            site_url="https://review.example.com",
+            title="Review Target",
+            description="desc",
+            status="hidden",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+        source_id = source.id
+
+    list_response = client.get("/v1/admin/sources?status=hidden")
+    assert list_response.status_code == 200
+    assert list_response.json()["items"][0]["id"] == source_id
+
+    update_response = client.post(
+        f"/v1/admin/sources/{source_id}/status",
+        json={"status": "active", "reason": "manual_restore"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == "active"
+
+    audit_response = client.get(f"/v1/admin/sources/{source_id}/audit-logs")
+    assert audit_response.status_code == 200
+    assert audit_response.json()["items"][0]["action"] == "source.status_updated"
+
+    delete_response = client.delete(
+        f"/v1/admin/sources/{source_id}?reason=cleanup",
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"]["id"] == source_id
+
+    recent_audit_response = client.get("/v1/admin/audit-logs")
+    assert recent_audit_response.status_code == 200
+    assert recent_audit_response.json()["items"][0]["action"] in {"source.deleted", "source.status_updated"}
+
+    client.post("/v1/admin/auth/logout")
+    recovery_login_response = client.post(
+        "/v1/admin/auth/login",
+        json={"email": "admin@example.com", "password": "super-secret-123", "recovery_code": recovery_codes[0]},
+    )
+    assert recovery_login_response.status_code == 200
+    assert recovery_login_response.json()["requires_totp_setup"] is False
+
+
 def test_mcp_tools_endpoint() -> None:
     response = client.get("/mcp/tools")
     assert response.status_code == 200

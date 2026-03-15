@@ -29,7 +29,7 @@ export function SourceRegisterDialog({
         )}
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
-        <DialogHeader>
+        <DialogHeader className="py-5">
           <DialogTitle>Add a new source</DialogTitle>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto px-6 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
