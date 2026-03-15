@@ -1,3 +1,5 @@
+import type { LanguageCode, SourceCategory, SourceTag, SourceType } from "@/lib/source-metadata";
+
 export type AdminUser = {
   id: string;
   email: string;
@@ -30,6 +32,10 @@ export type AdminSource = {
   title: string;
   description: string | null;
   favicon_url: string | null;
+  language: LanguageCode | null;
+  type: SourceType | null;
+  categories: SourceCategory[];
+  tags: SourceTag[];
   status: string;
   status_reason: string | null;
   registered_at: string;
@@ -128,6 +134,15 @@ export function listAdminSources(status: string) {
   return adminRequest<{ items: AdminSource[] }>(`/sources?${query}`);
 }
 
+export function searchAdminSources(params?: Record<string, string | undefined>) {
+  const search = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const query = search.toString();
+  return adminRequest<{ items: AdminSource[] }>(`/sources${query ? `?${query}` : ""}`);
+}
+
 export function getAdminSource(sourceId: string) {
   return adminRequest<AdminSource>(`/sources/${sourceId}`);
 }
@@ -152,5 +167,15 @@ export function deleteAdminSource(sourceId: string, reason?: string) {
   const query = reason ? `?${new URLSearchParams({ reason }).toString()}` : "";
   return adminRequest<{ deleted: { id: string; title: string; status: string } }>(`/sources/${sourceId}${query}`, {
     method: "DELETE",
+  });
+}
+
+export function updateAdminSource(
+  sourceId: string,
+  payload: { language?: LanguageCode; type?: SourceType; categories?: SourceCategory[]; tags?: SourceTag[] },
+) {
+  return adminRequest<AdminSource>(`/sources/${sourceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }

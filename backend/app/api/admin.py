@@ -18,11 +18,13 @@ from app.schemas.admin import (
     AdminSourceListResponse,
     AdminSourceResponse,
     AdminSourceStatusUpdateRequest,
+    AdminSourceUpdateRequest,
     AdminTotpSetupResponse,
     AdminTotpVerifyRequest,
     AdminTotpVerifyResponse,
     AdminUserResponse,
 )
+from app.source_metadata import csv_contains, join_csv, parse_csv
 from app.services.admin_auth import (
     build_totp_uri,
     create_session_token,
@@ -71,6 +73,10 @@ def _serialize_source(source: Source) -> AdminSourceResponse:
         title=source.title,
         description=source.description,
         favicon_url=source.favicon_url,
+        language=source.language,
+        type=source.source_type,
+        categories=parse_csv(source.categories),
+        tags=parse_csv(source.tags),
         status=source.status,
         status_reason=source.status_reason,
         registered_at=source.registered_at,
@@ -236,12 +242,36 @@ def regenerate_recovery_codes(
 
 @router.get("/sources", response_model=AdminSourceListResponse)
 def list_admin_sources(
-    status: str = "pending_review",
+    status: str | None = None,
+    keyword: str | None = None,
+    language: str | None = None,
+    type: str | None = None,
+    category: str | None = None,
+    tag: str | None = None,
+    page: int = 1,
+    limit: int = 20,
     user: AdminUser = Depends(require_admin_session),
     db: Session = Depends(get_session),
 ) -> AdminSourceListResponse:
     _ = user
-    sources = db.scalars(select(Source).where(Source.status == status).order_by(Source.registered_at.desc()).limit(200)).all()
+    query = select(Source)
+    if status:
+        query = query.where(Source.status == status)
+    if keyword:
+        query = query.where(Source.title.ilike(f"%{keyword}%"))
+    if language:
+        query = query.where(Source.language == language)
+    if type:
+        query = query.where(Source.source_type == type)
+    if category:
+        query = query.where(csv_contains(Source.categories, category))
+    if tag:
+        query = query.where(csv_contains(Source.tags, tag))
+
+    capped_limit = min(max(limit, 1), 100)
+    sources = db.scalars(
+        query.order_by(Source.last_published_at.desc(), Source.registered_at.desc()).offset((max(page, 1) - 1) * capped_limit).limit(capped_limit)
+    ).all()
     return AdminSourceListResponse(items=[_serialize_source(source) for source in sources])
 
 
@@ -324,6 +354,38 @@ def update_admin_source_status(
             reason=payload.reason,
             from_status=from_status,
             to_status=payload.status,
+        )
+    )
+    db.commit()
+    db.refresh(source)
+    return _serialize_source(source)
+
+
+@router.patch("/sources/{source_id}", response_model=AdminSourceResponse)
+def update_admin_source(
+    source_id: str,
+    payload: AdminSourceUpdateRequest,
+    user: AdminUser = Depends(require_admin_session),
+    db: Session = Depends(get_session),
+) -> AdminSourceResponse:
+    source = db.get(Source, source_id)
+    if not source:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "source_not_found", "message": "Source not found."},
+        )
+
+    source.language = payload.language
+    source.source_type = payload.type
+    source.categories = join_csv(payload.categories)
+    source.tags = join_csv(payload.tags)
+    db.add(source)
+    db.add(
+        AdminAuditLog(
+            admin_user_id=user.id,
+            source_id=source.id,
+            action="source.metadata_updated",
+            reason="metadata_edit",
         )
     )
     db.commit()

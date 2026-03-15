@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Globe, Rss } from "lucide-react";
+import type { MouseEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,13 +19,27 @@ function formatDate(value: string | null): string {
   return `${year}.${month}.${day} ${hours}:${minutes}`;
 }
 
-export function SourceCard({ source, className }: { source: Source; className?: string }) {
+export function SourceCard({
+  source,
+  className,
+  onSelect,
+}: {
+  source: Source;
+  className?: string;
+  onSelect?: () => void;
+}) {
+  function handleActionClick(event: MouseEvent) {
+    event.stopPropagation();
+  }
+
   return (
     <article
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_96px] gap-0 px-4 py-3 md:grid-cols-[minmax(0,1fr)_124px] md:px-5",
+        onSelect ? "cursor-pointer transition-colors hover:bg-muted/20" : "",
         className,
       )}
+      onClick={onSelect}
     >
       <div className="space-y-2 pr-4 md:pr-5">
         <div className="flex items-start justify-between gap-5">
@@ -74,12 +89,12 @@ export function SourceCard({ source, className }: { source: Source; className?: 
 
       <div className="flex items-center justify-end gap-2 self-center border-l border-border/80 pl-4 md:pl-5">
         <Button asChild variant="outline" className="h-11 w-11 rounded-none px-0">
-          <a href={source.site_url} target="_blank" rel="noreferrer" aria-label={`${source.title} source URL`}>
+          <a href={source.site_url} target="_blank" rel="noreferrer" aria-label={`${source.title} source URL`} onClick={handleActionClick}>
             <Globe className="h-4 w-4" />
           </a>
         </Button>
         <Button asChild variant="outline" className="h-11 w-11 rounded-none px-0">
-          <a href={source.rss_url} target="_blank" rel="noreferrer" aria-label={`${source.title} RSS URL`}>
+          <a href={source.rss_url} target="_blank" rel="noreferrer" aria-label={`${source.title} RSS URL`} onClick={handleActionClick}>
             <Rss className="h-4 w-4" />
           </a>
         </Button>

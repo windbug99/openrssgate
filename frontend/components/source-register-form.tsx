@@ -1,7 +1,7 @@
 "use client";
 
 import { OctagonX } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { SearchableSlotSelect } from "@/components/searchable-slot-select";
@@ -21,15 +21,40 @@ import {
 } from "@/lib/source-metadata";
 import { cn } from "@/lib/utils";
 
-const initialState = {
-  rss_url: "",
-  language: "" as LanguageCode | "",
-  type: "" as SourceType | "",
-  categories: [] as SourceCategory[],
-  tags: [] as SourceTag[],
+type FormState = {
+  rss_url: string;
+  language: LanguageCode | "";
+  type: SourceType | "";
+  categories: SourceCategory[];
+  tags: SourceTag[];
+};
+
+type EditPayload = {
+  language?: LanguageCode;
+  type?: SourceType;
+  categories: SourceCategory[];
+  tags: SourceTag[];
 };
 
 type ActionState = "idle" | "success" | "error";
+
+const EMPTY_FORM: FormState = {
+  rss_url: "",
+  language: "",
+  type: "",
+  categories: [],
+  tags: [],
+};
+
+function buildInitialState(values?: Partial<FormState>): FormState {
+  return {
+    rss_url: values?.rss_url ?? "",
+    language: values?.language ?? "",
+    type: values?.type ?? "",
+    categories: values?.categories ?? [],
+    tags: values?.tags ?? [],
+  };
+}
 
 function getStatusMessage(source: Source): string {
   if (source.status === "active") {
@@ -100,8 +125,18 @@ function getActionButtonClass(state: ActionState): string {
   return "border-border/80";
 }
 
-export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source) => void }) {
-  const [form, setForm] = useState(initialState);
+export function SourceRegisterForm({
+  onSuccess,
+  mode = "create",
+  initialValues,
+  onUpdate,
+}: {
+  onSuccess?: (source: Source) => void;
+  mode?: "create" | "edit";
+  initialValues?: Partial<FormState>;
+  onUpdate?: (payload: EditPayload) => Promise<void>;
+}) {
+  const [form, setForm] = useState<FormState>(() => buildInitialState(initialValues));
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
   const [autofilling, setAutofilling] = useState(false);
@@ -113,6 +148,19 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
   const [autofillError, setAutofillError] = useState<string | null>(null);
   const [validateActionState, setValidateActionState] = useState<ActionState>("idle");
   const [autofillActionState, setAutofillActionState] = useState<ActionState>("idle");
+  const isEditMode = mode === "edit";
+
+  useEffect(() => {
+    setForm(buildInitialState(initialValues));
+    setCreatedSource(null);
+    setValidatedSource(null);
+    setAutofillResult(null);
+    setError(null);
+    setValidationError(null);
+    setAutofillError(null);
+    setValidateActionState("idle");
+    setAutofillActionState("idle");
+  }, [initialValues]);
 
   async function handleValidate() {
     if (!form.rss_url.trim()) {
@@ -216,12 +264,28 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
     }
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError(null);
 
     try {
+      if (isEditMode) {
+        await onUpdate?.({
+          language: form.language || undefined,
+          type: form.type || undefined,
+          categories: form.categories,
+          tags: form.tags,
+        });
+        setValidatedSource(null);
+        setAutofillResult(null);
+        setValidationError(null);
+        setAutofillError(null);
+        setValidateActionState("idle");
+        setAutofillActionState("idle");
+        return;
+      }
+
       const source = await createSource({
         rss_url: form.rss_url,
         language: form.language || undefined,
@@ -236,11 +300,11 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       setAutofillError(null);
       setValidateActionState("idle");
       setAutofillActionState("idle");
-      setForm(initialState);
+      setForm(EMPTY_FORM);
       onSuccess?.(source);
     } catch (submitError) {
       setCreatedSource(null);
-      setError(submitError instanceof Error ? submitError.message : "Source registration failed.");
+      setError(submitError instanceof Error ? submitError.message : isEditMode ? "Source update failed." : "Source registration failed.");
     } finally {
       setSaving(false);
     }
@@ -250,7 +314,9 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
     <div className="space-y-5">
       <div className="space-y-2">
         <p className="text-[0.95rem] leading-7 text-muted-foreground">
-          Register the RSS URL and classify the source with controlled options for language, type, categories, and tags.
+          {isEditMode
+            ? "Review and update the source metadata with controlled options for language, type, categories, and tags."
+            : "Register the RSS URL and classify the source with controlled options for language, type, categories, and tags."}
         </p>
         <p className="text-sm leading-6 text-muted-foreground">
           <span className="inline-flex items-center gap-2">
@@ -261,20 +327,23 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
           </span>
         </p>
       </div>
+
       {createdSource ? (
         <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-foreground">
           <strong>{createdSource.status.toUpperCase()}</strong> {getStatusMessage(createdSource)}
         </div>
       ) : null}
       {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
+
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-3 md:col-span-2 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+          <div className={cn("grid gap-3 md:col-span-2", isEditMode ? "md:grid-cols-1" : "md:grid-cols-[minmax(0,1fr)_180px_180px]")}>
             <div>
               <Input
                 className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 placeholder="https://blog.example.com/rss.xml"
                 value={form.rss_url}
+                readOnly={isEditMode}
                 onChange={(event) => {
                   const nextValue = event.target.value;
                   setForm((current) => ({ ...current, rss_url: nextValue }));
@@ -288,51 +357,60 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
                 required
               />
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={validating || saving}
-              className={cn("h-12 rounded-none px-6", getActionButtonClass(validateActionState))}
-              onClick={handleValidate}
-            >
-                {validating ? "Validating..." : "Validate first"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!validatedSource || autofilling || validating || saving}
-              className={cn("h-12 rounded-none px-6", getActionButtonClass(autofillActionState))}
-              onClick={handleAutofill}
-            >
-              {autofilling ? "Autofilling..." : "Autofill Metadata"}
-            </Button>
-            <div className="space-y-1 text-xs leading-5 md:col-span-3">
-              {validatedSource ? (
-                <>
-                  <div className="text-emerald-500">{getValidationMessage(validatedSource)}</div>
-                  <div className="text-muted-foreground">
-                    {(() => {
-                      const fields = getAutoAppliedFields(validatedSource);
-                      if (fields.length === 0) {
-                        return "No language, type, category, or tag was detected automatically.";
-                      }
-                      return `Auto-applied to empty fields: ${fields.join(", ")}.`;
-                    })()}
-                  </div>
-                </>
-              ) : null}
-              {validationError ? <div className="text-destructive">{validationError}</div> : null}
-              {autofillResult ? (
-                <>
-                  <div className="text-emerald-500">
-                    Autofill {autofillResult.source} · {autofillResult.samples_used} sample{autofillResult.samples_used === 1 ? "" : "s"}
-                  </div>
-                  <div className="text-muted-foreground">{autofillResult.reasoning.summary}</div>
-                </>
-              ) : null}
-              {autofillError ? <div className="text-destructive">{autofillError}</div> : null}
-            </div>
+
+            {!isEditMode ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={validating || saving}
+                  className={cn("h-12 rounded-none px-6", getActionButtonClass(validateActionState))}
+                  onClick={handleValidate}
+                >
+                  {validating ? "Validating..." : "Validate first"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!validatedSource || autofilling || validating || saving}
+                  className={cn("h-12 rounded-none px-6", getActionButtonClass(autofillActionState))}
+                  onClick={handleAutofill}
+                >
+                  {autofilling ? "Autofilling..." : "Autofill Metadata"}
+                </Button>
+              </>
+            ) : null}
+
+            {!isEditMode ? (
+              <div className="space-y-1 text-xs leading-5 md:col-span-3">
+                {validatedSource ? (
+                  <>
+                    <div className="text-emerald-500">{getValidationMessage(validatedSource)}</div>
+                    <div className="text-muted-foreground">
+                      {(() => {
+                        const fields = getAutoAppliedFields(validatedSource);
+                        if (fields.length === 0) {
+                          return "No language, type, category, or tag was detected automatically.";
+                        }
+                        return `Auto-applied to empty fields: ${fields.join(", ")}.`;
+                      })()}
+                    </div>
+                  </>
+                ) : null}
+                {validationError ? <div className="text-destructive">{validationError}</div> : null}
+                {autofillResult ? (
+                  <>
+                    <div className="text-emerald-500">
+                      Autofill {autofillResult.source} · {autofillResult.samples_used} sample{autofillResult.samples_used === 1 ? "" : "s"}
+                    </div>
+                    <div className="text-muted-foreground">{autofillResult.reasoning.summary}</div>
+                  </>
+                ) : null}
+                {autofillError ? <div className="text-destructive">{autofillError}</div> : null}
+              </div>
+            ) : null}
           </div>
+
           <label className="space-y-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Language</span>
             <FilterDropdown
@@ -344,6 +422,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
             />
           </label>
+
           <label className="space-y-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Type</span>
             <FilterDropdown
@@ -355,6 +434,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
             />
           </label>
+
           <div className="md:col-span-2">
             <SearchableSlotSelect
               label="Categories"
@@ -367,6 +447,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
               emptyMessage="No categories matched."
             />
           </div>
+
           <div className="md:col-span-2">
             <SearchableSlotSelect
               label="Tags"
@@ -380,9 +461,10 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
             />
           </div>
         </div>
+
         <div className="mt-12 flex flex-wrap gap-3">
           <Button type="submit" disabled={saving} className="h-12 rounded-none px-6">
-            {saving ? "Registering..." : "Register Source"}
+            {saving ? (isEditMode ? "Saving..." : "Registering...") : isEditMode ? "Save source" : "Register Source"}
           </Button>
         </div>
       </form>

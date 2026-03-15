@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { AdminSourcesCatalog } from "@/components/admin/sources-catalog";
 
 export default function AdminSourcesPage() {
-  redirect("/admin/queues");
+  return <AdminSourcesCatalog />;
 }

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
+  { href: "/admin/sources", label: "Sources" },
   { href: "/admin/queues", label: "Queues" },
   { href: "/admin/activity", label: "Activity" },
 ];
