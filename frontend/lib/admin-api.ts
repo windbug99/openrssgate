@@ -91,57 +91,57 @@ async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function loginAdmin(payload: { email: string; password: string; otp_code?: string; recovery_code?: string }) {
-  return adminRequest<AdminLoginResponse>("/admin/auth/login", {
+  return adminRequest<AdminLoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export function getAdminMe() {
-  return adminRequest<AdminUser>("/admin/auth/me");
+  return adminRequest<AdminUser>("/auth/me");
 }
 
 export function logoutAdmin() {
-  return adminRequest<{ status: string }>("/admin/auth/logout", { method: "POST" });
+  return adminRequest<{ status: string }>("/auth/logout", { method: "POST" });
 }
 
 export function setupAdminTotp() {
-  return adminRequest<AdminTotpSetup>("/admin/auth/totp/setup", { method: "POST" });
+  return adminRequest<AdminTotpSetup>("/auth/totp/setup", { method: "POST" });
 }
 
 export function verifyAdminTotp(code: string) {
-  return adminRequest<AdminTotpVerifyResponse>("/admin/auth/totp/verify", {
+  return adminRequest<AdminTotpVerifyResponse>("/auth/totp/verify", {
     method: "POST",
     body: JSON.stringify({ code }),
   });
 }
 
 export function regenerateRecoveryCodes() {
-  return adminRequest<AdminRecoveryCodesResponse>("/admin/auth/recovery-codes/regenerate", {
+  return adminRequest<AdminRecoveryCodesResponse>("/auth/recovery-codes/regenerate", {
     method: "POST",
   });
 }
 
 export function listAdminSources(status: string) {
   const query = new URLSearchParams({ status }).toString();
-  return adminRequest<{ items: AdminSource[] }>(`/admin/sources?${query}`);
+  return adminRequest<{ items: AdminSource[] }>(`/sources?${query}`);
 }
 
 export function getAdminSource(sourceId: string) {
-  return adminRequest<AdminSource>(`/admin/sources/${sourceId}`);
+  return adminRequest<AdminSource>(`/sources/${sourceId}`);
 }
 
 export function listAdminAuditLogs(limit = 20) {
   const query = new URLSearchParams({ limit: String(limit) }).toString();
-  return adminRequest<{ items: AdminAuditLog[] }>(`/admin/audit-logs?${query}`);
+  return adminRequest<{ items: AdminAuditLog[] }>(`/audit-logs?${query}`);
 }
 
 export function listAdminSourceAuditLogs(sourceId: string) {
-  return adminRequest<{ items: AdminAuditLog[] }>(`/admin/sources/${sourceId}/audit-logs`);
+  return adminRequest<{ items: AdminAuditLog[] }>(`/sources/${sourceId}/audit-logs`);
 }
 
 export function updateAdminSourceStatus(sourceId: string, status: string, reason?: string) {
-  return adminRequest<AdminSource>(`/admin/sources/${sourceId}/status`, {
+  return adminRequest<AdminSource>(`/sources/${sourceId}/status`, {
     method: "POST",
     body: JSON.stringify({ status, reason }),
   });
@@ -149,7 +149,7 @@ export function updateAdminSourceStatus(sourceId: string, status: string, reason
 
 export function deleteAdminSource(sourceId: string, reason?: string) {
   const query = reason ? `?${new URLSearchParams({ reason }).toString()}` : "";
-  return adminRequest<{ deleted: { id: string; title: string; status: string } }>(`/admin/sources/${sourceId}${query}`, {
+  return adminRequest<{ deleted: { id: string; title: string; status: string } }>(`/sources/${sourceId}${query}`, {
     method: "DELETE",
   });
 }
