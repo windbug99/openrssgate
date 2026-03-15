@@ -87,6 +87,11 @@ class SourceResponse(BaseModel):
     tags: list[str]
     status: str
     status_reason: str | None
+    ai_reviewed_at: datetime | None = None
+    ai_review_source: str | None = None
+    ai_review_reason: str | None = None
+    ai_review_confidence: str | None = None
+    ai_review_decision: str | None = None
     registered_by: str
     registered_at: datetime
     last_fetched_at: datetime | None
@@ -117,6 +122,7 @@ class SourceValidateResponse(BaseModel):
     review_source: str
     ai_review_reason: str | None = None
     ai_review_confidence: str | None = None
+    ai_review_decision: str | None = None
     message: str
 
 

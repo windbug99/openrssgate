@@ -29,6 +29,7 @@ class SourceReviewResult:
     review_source: str
     ai_review_reason: str | None = None
     ai_review_confidence: str | None = None
+    ai_review_decision: str | None = None
 
 
 def _duplicate_title_ratio(entries: list[dict[str, object]]) -> float:
@@ -216,4 +217,5 @@ async def review_source_bundle_with_ai(
         review_source="ai",
         ai_review_reason=str(ai_result["reason"] or "") or None,
         ai_review_confidence=str(ai_result["confidence"] or "") or None,
+        ai_review_decision=str(ai_result["recommended_status"] or "") or None,
     )

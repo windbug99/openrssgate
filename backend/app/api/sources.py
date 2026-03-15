@@ -79,6 +79,11 @@ def _to_source_response(source: Source) -> SourceResponse:
         tags=parse_csv(source.tags),
         status=source.status,
         status_reason=source.status_reason,
+        ai_reviewed_at=source.ai_reviewed_at,
+        ai_review_source=source.ai_review_source,
+        ai_review_reason=source.ai_review_reason,
+        ai_review_confidence=source.ai_review_confidence,
+        ai_review_decision=source.ai_review_decision,
         registered_by=source.registered_by,
         registered_at=source.registered_at,
         last_fetched_at=source.last_fetched_at,
@@ -254,6 +259,7 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         review_source=review_result.review_source,
         ai_review_reason=review_result.ai_review_reason,
         ai_review_confidence=review_result.ai_review_confidence,
+        ai_review_decision=review_result.ai_review_decision,
         message=build_validate_message(review_result),
     )
 
@@ -356,6 +362,18 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
     )
     source.status = review_result.final_decision.status
     source.status_reason = review_result.final_decision.reason
+    if review_result.review_source in {"ai", "rule_fallback"}:
+        source.ai_reviewed_at = datetime.now(UTC)
+        source.ai_review_source = "create"
+        source.ai_review_reason = review_result.ai_review_reason
+        source.ai_review_confidence = review_result.ai_review_confidence
+        source.ai_review_decision = review_result.ai_review_decision or review_result.final_decision.status
+    else:
+        source.ai_reviewed_at = None
+        source.ai_review_source = None
+        source.ai_review_reason = None
+        source.ai_review_confidence = None
+        source.ai_review_decision = None
 
     if review_result.final_decision.status == "active":
         ingest_source_bundle(

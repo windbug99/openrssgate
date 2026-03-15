@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from datetime import UTC, datetime, timedelta
+from sqlalchemy import select
 
 from app.services.cache import response_cache
 from app.services.rate_limit import read_rate_limiter, registration_rate_limiter
@@ -922,6 +923,71 @@ def test_create_source_can_be_hidden_after_review(monkeypatch) -> None:
     payload = response.json()
     assert payload["status"] == "hidden"
     assert payload["status_reason"] == "missing_published_dates"
+
+
+def test_create_source_persists_ai_review_fields(monkeypatch) -> None:
+    from app.api import sources as sources_module
+    from app.services.ai_review import SourceReviewResult
+    from app.services.review import ReviewDecision
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/annual.xml",
+                "site_url": "https://example.com",
+                "title": "Annual Journal",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "2024 annual letter", "feed_url": "https://example.com/1", "published_at": datetime.now(UTC)},
+                {"guid": "2", "title": "2023 annual letter", "feed_url": "https://example.com/2", "published_at": datetime.now(UTC)},
+            ],
+        }
+
+    async def fake_review_source_bundle_with_ai(**_: object) -> SourceReviewResult:
+        return SourceReviewResult(
+            initial_decision=ReviewDecision(status="hidden", reason="stale_feed"),
+            final_decision=ReviewDecision(status="active", reason="ai_override"),
+            review_source="ai",
+            ai_review_reason="Legitimate low-frequency publication with coherent entries.",
+            ai_review_confidence="high",
+            ai_review_decision="active",
+        )
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+    monkeypatch.setattr(sources_module, "review_source_bundle_with_ai", fake_review_source_bundle_with_ai)
+
+    response = client.post(
+        "/v1/sources",
+        json={"rss_url": "https://example.com/annual.xml", "tags": []},
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "active"
+    assert payload["status_reason"] == "ai_override"
+    assert payload["ai_review_source"] == "create"
+    assert payload["ai_review_reason"] == "Legitimate low-frequency publication with coherent entries."
+    assert payload["ai_review_confidence"] == "high"
+    assert payload["ai_review_decision"] == "active"
+    assert payload["ai_reviewed_at"] is not None
+
+    with SessionLocal() as db:
+        source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/annual.xml"))
+
+    assert source is not None
+    assert source.ai_review_source == "create"
+    assert source.ai_review_reason == "Legitimate low-frequency publication with coherent entries."
+    assert source.ai_review_confidence == "high"
+    assert source.ai_review_decision == "active"
+    assert source.ai_reviewed_at is not None
 
 
 def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
