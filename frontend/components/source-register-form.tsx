@@ -6,16 +6,12 @@ import { useState } from "react";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createSource, validateSource, type Source, type SourceValidation } from "@/lib/api";
+import { autofillSource, createSource, validateSource, type Source, type SourceAutofill, type SourceValidation } from "@/lib/api";
 import {
-  LANGUAGE_LABELS,
   LANGUAGE_OPTIONS,
-  SOURCE_CATEGORY_LABELS,
   SOURCE_CATEGORY_OPTIONS,
   SOURCE_LIMITS,
-  SOURCE_TAG_LABELS,
   SOURCE_TAG_OPTIONS,
-  SOURCE_TYPE_LABELS,
   SOURCE_TYPE_OPTIONS,
   type LanguageCode,
   type SourceCategory,
@@ -93,14 +89,24 @@ function getValidationMessage(source: SourceValidation): string {
   return parts.join(" · ");
 }
 
+function getAutofillMessage(appliedFields: string[]): string {
+  if (appliedFields.length === 0) {
+    return "Suggestions are ready, but all supported fields already have values.";
+  }
+  return `Applied to empty fields: ${appliedFields.join(", ")}.`;
+}
+
 export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source) => void }) {
   const [form, setForm] = useState(initialState);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [autofilling, setAutofilling] = useState(false);
   const [createdSource, setCreatedSource] = useState<Source | null>(null);
   const [validatedSource, setValidatedSource] = useState<SourceValidation | null>(null);
+  const [autofillResult, setAutofillResult] = useState<SourceAutofill | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [autofillError, setAutofillError] = useState<string | null>(null);
 
   async function handleValidate() {
     if (!form.rss_url.trim()) {
@@ -111,6 +117,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
 
     setValidating(true);
     setValidationError(null);
+    setAutofillError(null);
     setError(null);
 
     try {
@@ -122,6 +129,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
         tags: form.tags,
       });
       setValidatedSource(result);
+      setAutofillResult(null);
       setForm((current) => ({
         ...current,
         rss_url: result.rss_url || current.rss_url,
@@ -132,9 +140,64 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       }));
     } catch (submitError) {
       setValidatedSource(null);
+      setAutofillResult(null);
       setValidationError(submitError instanceof Error ? submitError.message : "Source validation failed.");
     } finally {
       setValidating(false);
+    }
+  }
+
+  async function handleAutofill() {
+    if (!validatedSource) {
+      setAutofillError("Validate the RSS URL before autofill.");
+      return;
+    }
+
+    setAutofilling(true);
+    setAutofillError(null);
+    setError(null);
+
+    try {
+      const result = await autofillSource({
+        rss_url: validatedSource.rss_url || form.rss_url,
+        language: form.language || undefined,
+        type: form.type || undefined,
+        categories: form.categories,
+        tags: form.tags,
+      });
+
+      const appliedFields: string[] = [];
+      setForm((current) => {
+        const nextLanguage = current.language || result.language || "";
+        const nextType = current.type || result.type || "";
+        const nextCategories = mergeLimitedSelection(current.categories, result.categories, SOURCE_LIMITS.maxCategories);
+        const nextTags = mergeLimitedSelection(current.tags, result.tags, SOURCE_LIMITS.maxTags);
+
+        if (!current.language && result.language) appliedFields.push("language");
+        if (!current.type && result.type) appliedFields.push("type");
+        if (current.categories.length === 0 && nextCategories.length > 0) appliedFields.push("categories");
+        if (current.tags.length === 0 && nextTags.length > 0) appliedFields.push("tags");
+
+        return {
+          ...current,
+          language: nextLanguage,
+          type: nextType,
+          categories: nextCategories,
+          tags: nextTags,
+        };
+      });
+      setAutofillResult({
+        ...result,
+        reasoning: {
+          ...result.reasoning,
+          summary: getAutofillMessage(appliedFields),
+        },
+      });
+    } catch (submitError) {
+      setAutofillResult(null);
+      setAutofillError(submitError instanceof Error ? submitError.message : "Metadata autofill failed.");
+    } finally {
+      setAutofilling(false);
     }
   }
 
@@ -153,7 +216,9 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       });
       setCreatedSource(source);
       setValidatedSource(null);
+      setAutofillResult(null);
       setValidationError(null);
+      setAutofillError(null);
       setForm(initialState);
       onSuccess?.(source);
     } catch (submitError) {
@@ -179,7 +244,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-3 md:col-span-2 md:grid-cols-[minmax(0,1fr)_180px]">
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
             <div className="space-y-2">
               <Input
                 className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -189,6 +254,8 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
                   const nextValue = event.target.value;
                   setForm((current) => ({ ...current, rss_url: nextValue }));
                   setValidatedSource((current) => (current?.rss_url === nextValue ? current : null));
+                  setAutofillResult(null);
+                  setAutofillError(null);
                 }}
                 required
               />
@@ -207,10 +274,30 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
                 </div>
               ) : null}
               {validationError ? <div className="text-xs leading-5 text-destructive">{validationError}</div> : null}
+              {autofillResult ? (
+                <div className="space-y-1 text-xs leading-5">
+                  <div className="text-emerald-500">
+                    Autofill {autofillResult.source} · {autofillResult.samples_used} sample{autofillResult.samples_used === 1 ? "" : "s"}
+                  </div>
+                  <div className="text-muted-foreground">{autofillResult.reasoning.summary}</div>
+                </div>
+              ) : null}
+              {autofillError ? <div className="text-xs leading-5 text-destructive">{autofillError}</div> : null}
             </div>
-            <Button type="button" variant="outline" disabled={validating || saving} className="h-12 rounded-none px-6" onClick={handleValidate}>
-              {validating ? "Validating..." : "Validate first"}
-            </Button>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Button type="button" variant="outline" disabled={validating || saving} className="h-12 rounded-none px-6" onClick={handleValidate}>
+                {validating ? "Validating..." : "Validate first"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!validatedSource || autofilling || validating || saving}
+                className="h-12 rounded-none px-6"
+                onClick={handleAutofill}
+              >
+                {autofilling ? "Autofilling..." : "Autofill Metadata"}
+              </Button>
+            </div>
           </div>
           <label className="space-y-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Language</span>

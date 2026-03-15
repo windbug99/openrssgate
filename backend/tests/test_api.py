@@ -318,6 +318,99 @@ def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:
     assert payload["tags"] == ["ai", "backend", "analysis"]
 
 
+def test_autofill_source_endpoint_returns_heuristic_metadata(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://brief.example.com/feed.xml",
+                "site_url": "https://brief.example.com",
+                "title": "AI Chip Policy Weekly",
+                "description": "Weekly digest covering AI infrastructure, semiconductor strategy, and policy analysis.",
+                "favicon_url": "https://brief.example.com/favicon.ico",
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {
+                    "guid": "1",
+                    "title": "AI agents reshape semiconductor design workflows",
+                    "feed_url": "https://brief.example.com/1",
+                    "published_at": datetime.now(UTC),
+                    "summary": "A weekly digest on chip tooling, AI infrastructure, and industrial policy.",
+                    "content_text": None,
+                },
+                {
+                    "guid": "2",
+                    "title": "Why chip export policy now defines AI competitiveness",
+                    "feed_url": "https://brief.example.com/2",
+                    "published_at": datetime.now(UTC) - timedelta(days=1),
+                    "summary": "Policy analysis focused on semiconductor supply chains and AI compute.",
+                    "content_text": None,
+                },
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources/autofill", json={"rss_url": "https://brief.example.com/feed.xml", "tags": []})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["type"] == "newsletter"
+    assert "ai" in payload["categories"]
+    assert len(payload["categories"]) == 2
+    assert payload["tags"] == ["ai", "agents", "semiconductor"]
+    assert payload["source"] == "heuristic"
+    assert payload["samples_used"] >= 2
+
+
+def test_autofill_source_endpoint_uses_gemini_suggestions(monkeypatch) -> None:
+    from app.api import sources as sources_module
+    from app.services import source_autofill as autofill_module
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://dispatch.example.com/feed.xml",
+                "site_url": "https://dispatch.example.com",
+                "title": "Dispatch",
+                "description": "Updates.",
+                "favicon_url": "https://dispatch.example.com/favicon.ico",
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {
+                    "guid": "1",
+                    "title": "Market note",
+                    "feed_url": "https://dispatch.example.com/1",
+                    "published_at": datetime.now(UTC),
+                    "summary": "A short note on enterprise software buying patterns.",
+                    "content_text": None,
+                }
+            ],
+        }
+
+    async def fake_request_gemini_autofill(_: dict[str, object]) -> dict[str, object]:
+        return {
+            "language": "en",
+            "type": "newsletter",
+            "categories": ["business", "tech"],
+            "tags": ["enterprise", "analysis", "weekly"],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+    monkeypatch.setattr(autofill_module, "_request_gemini_autofill", fake_request_gemini_autofill)
+
+    response = client.post("/v1/sources/autofill", json={"rss_url": "https://dispatch.example.com/feed.xml", "tags": []})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["language"] == "en"
+    assert payload["type"] == "newsletter"
+    assert payload["categories"] == ["business", "tech"]
+    assert payload["tags"] == ["enterprise", "analysis", "weekly"]
+    assert payload["source"] == "mixed"
+
+
 def test_validate_source_endpoint_returns_specific_failure_reason(monkeypatch) -> None:
     from app.api import sources as sources_module
     from app.services.rss import InvalidRSSUrlError

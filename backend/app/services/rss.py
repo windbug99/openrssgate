@@ -169,6 +169,17 @@ def _extract_metadata(rss_url: str, parsed_feed: feedparser.FeedParserDict) -> d
         "site_url": link,
         "title": title,
         "description": description,
+        "language": feed.get("language"),
+        "type": feed.get("type"),
+        "categories": ",".join(
+            str(term).strip().lower()
+            for term in (
+                entry.get("term")
+                for entry in feed.get("tags", [])
+                if isinstance(entry, dict) and entry.get("term")
+            )
+            if str(term).strip()
+        ),
         "favicon_url": favicon_url,
         "feed_format": parsed_feed.version or "unknown",
     }
@@ -195,12 +206,24 @@ async def fetch_feed_bundle(rss_url: str) -> dict[str, object]:
             continue
 
         published_at = _normalize_datetime(entry.get("published_parsed") or entry.get("updated_parsed"))
+        summary = str(entry.get("summary") or entry.get("subtitle") or "").strip() or None
+        content_text = None
+        content = entry.get("content")
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    candidate = str(item.get("value") or "").strip()
+                    if candidate:
+                        content_text = candidate
+                        break
         entries.append(
             {
                 "guid": identity,
                 "title": str(title),
                 "feed_url": str(link),
                 "published_at": published_at,
+                "summary": summary,
+                "content_text": content_text,
             }
         )
 

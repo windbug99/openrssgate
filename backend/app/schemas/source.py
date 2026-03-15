@@ -114,6 +114,17 @@ class SourceValidateResponse(BaseModel):
     feed_format: str | None
 
 
+class SourceAutofillResponse(BaseModel):
+    language: str | None
+    type: str | None
+    categories: list[str]
+    tags: list[str]
+    source: str
+    confidence: dict[str, str]
+    reasoning: dict[str, str]
+    samples_used: int
+
+
 class SourceStatusResponse(BaseModel):
     source_id: str
     last_fetched_at: datetime | None

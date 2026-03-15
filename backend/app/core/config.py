@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     ops_alert_failing_sources_threshold: int = 10
     ops_alert_collector_lag_minutes: int = 30
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://127.0.0.1:3000", "http://localhost:3000"]
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash-lite"
+    gemini_timeout_seconds: float = 5.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

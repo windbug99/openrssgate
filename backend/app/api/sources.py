@@ -12,6 +12,7 @@ from app.api.deps import get_session
 from app.core.config import get_settings
 from app.db.models import Feed, Source
 from app.schemas.source import (
+    SourceAutofillResponse,
     SourceCreate,
     SourceListResponse,
     SourceResponse,
@@ -34,6 +35,7 @@ from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
 from app.services.review import _normalize_site_host, review_source_bundle
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
+from app.services.source_autofill import autofill_source_metadata, detect_tags_from_text
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 public_router = APIRouter(tags=["sources"])
@@ -111,61 +113,30 @@ def _source_exists_for_site_url(db: Session, site_url: str) -> bool:
 def _detect_tags(metadata: dict[str, object], payload_tags: list[str]) -> list[str]:
     if payload_tags:
         return payload_tags
-
     text = " ".join(
-        str(part).strip().lower()
-        for part in (metadata.get("title"), metadata.get("description"))
+        str(part).strip()
+        for part in (metadata.get("title"), metadata.get("description"), metadata.get("categories"))
         if str(part or "").strip()
     )
-    if not text:
-        return []
+    return detect_tags_from_text(text)
 
-    keyword_map = {
-        "ai": (" ai ", "openai", "artificial intelligence", "llm", "gpt"),
-        "opensource": ("open source", "opensource", "oss"),
-        "startup": ("startup", "founder", "venture"),
-        "investing": ("invest", "investing", "stocks", "markets"),
-        "economy": ("economy", "economic", "macro"),
-        "programming": ("programming", "coding", "software development"),
-        "webdev": ("web dev", "webdev", "javascript", "css", "html"),
-        "mobile": ("mobile", "ios", "android"),
-        "backend": ("backend", "api", "server"),
-        "frontend": ("frontend", "front-end", "ui engineering"),
-        "devops": ("devops", "sre", "infrastructure", "ci/cd"),
-        "cloud": ("cloud", "aws", "gcp", "azure"),
-        "cybersecurity": ("security", "cybersecurity", "infosec"),
-        "data": ("data", "analytics", "database"),
-        "machine-learning": ("machine learning", "ml", "neural", "deep learning"),
-        "product": ("product", "pm"),
-        "ux": ("ux", "user experience", "design systems"),
-        "marketing": ("marketing", "growth", "seo"),
-        "leadership": ("leadership", "management"),
-        "career": ("career", "hiring", "job"),
-        "productivity": ("productivity", "workflow", "habits"),
-        "analysis": ("analysis", "analyst", "breakdown"),
-        "tutorial": ("tutorial", "guide", "how to"),
-        "opinion": ("opinion", "essay", "commentary"),
-        "review": ("review", "hands-on"),
-        "interview": ("interview",),
-        "curation": ("curation", "roundup", "links"),
-        "daily": ("daily",),
-        "weekly": ("weekly",),
-        "local": ("local",),
-        "global": ("global", "international"),
-        "beginner": ("beginner", "intro"),
-        "advanced": ("advanced", "deep dive"),
-    }
 
-    padded = f" {text} "
-    matches: list[str] = []
-    for tag, keywords in keyword_map.items():
-        if tag not in SOURCE_TAG_VALUES:
-            continue
-        if any(keyword in padded for keyword in keywords):
-            matches.append(tag)
-        if len(matches) >= MAX_SOURCE_TAGS:
-            break
-    return matches
+def _ensure_source_not_registered(db: Session, metadata: dict[str, object], fallback_rss_url: str) -> tuple[str, str]:
+    normalized_rss_url = str(metadata.get("rss_url") or fallback_rss_url)
+    if _source_exists_for_rss_url(db, normalized_rss_url):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
+        )
+
+    site_url = str(metadata.get("site_url") or "").strip()
+    if _source_exists_for_site_url(db, site_url):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "duplicate_source", "message": "A source for this site is already registered."},
+        )
+
+    return normalized_rss_url, site_url
 
 
 @router.get(
@@ -236,18 +207,7 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         ) from exc
 
     metadata = bundle["metadata"]
-    normalized_rss_url = str(metadata.get("rss_url") or payload.rss_url)
-    if _source_exists_for_rss_url(db, normalized_rss_url):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
-        )
-    site_url = str(metadata.get("site_url") or "").strip()
-    if _source_exists_for_site_url(db, site_url):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "duplicate_source", "message": "A source for this site is already registered."},
-        )
+    normalized_rss_url, site_url = _ensure_source_not_registered(db, metadata, str(payload.rss_url))
 
     language = payload.language
     if language is None:
@@ -283,6 +243,30 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         tags=_detect_tags(metadata, payload.tags),
         feed_format=str(metadata.get("feed_format") or "") or None,
     )
+
+
+@router.post(
+    "/autofill",
+    response_model=SourceAutofillResponse,
+    summary="Autofill source metadata",
+    description="Inspect source metadata and representative feed entries to suggest language, type, categories, and tags.",
+    responses={400: {"description": "Invalid or unreachable RSS URL"}},
+)
+async def autofill_source(payload: SourceCreate, db: Session = Depends(get_session)) -> SourceAutofillResponse:
+    _validate_registration_payload(payload)
+
+    try:
+        bundle = await fetch_feed_bundle(str(payload.rss_url))
+    except InvalidRSSUrlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_rss_url", "message": str(exc)},
+        ) from exc
+
+    metadata = bundle["metadata"]
+    _ensure_source_not_registered(db, metadata, str(payload.rss_url))
+    suggestions = await autofill_source_metadata(bundle)
+    return SourceAutofillResponse(**suggestions)
 
 
 @router.post(
@@ -325,19 +309,7 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
         ) from exc
 
     metadata = bundle["metadata"]
-    normalized_rss_url = str(metadata.get("rss_url") or payload.rss_url)
-    if _source_exists_for_rss_url(db, normalized_rss_url):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
-        )
-
-    site_url = str(metadata.get("site_url") or "").strip()
-    if _source_exists_for_site_url(db, site_url):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "duplicate_source", "message": "A source for this site is already registered."},
-        )
+    normalized_rss_url, site_url = _ensure_source_not_registered(db, metadata, str(payload.rss_url))
 
     source = Source(
         rss_url=normalized_rss_url,

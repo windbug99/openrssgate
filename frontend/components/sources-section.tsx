@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpDown, Database, Filter, Search, Signal } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { SourceCard } from "@/components/source-card";
@@ -10,11 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { listSources, type Source, type Stats } from "@/lib/api";
 import {
-  LANGUAGE_LABELS,
   LANGUAGE_OPTIONS,
-  SOURCE_CATEGORY_LABELS,
   SOURCE_CATEGORY_OPTIONS,
-  SOURCE_TYPE_LABELS,
   SOURCE_TYPE_OPTIONS,
   type LanguageCode,
   type SourceCategory,
@@ -52,6 +49,9 @@ export function SourcesSection({
   const [type, setType] = useState<SourceType | "all">("all");
   const [category, setCategory] = useState<SourceCategory | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("published_desc");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const deferredQuery = useDeferredValue(query);
+  const didMountRef = useRef(false);
 
   useEffect(() => {
     setSourceItems(sources);
@@ -88,25 +88,7 @@ export function SourcesSection({
   ];
 
   const filteredSources = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
-    const filtered = sourceItems.filter((source) => {
-      const matchesQuery =
-        lowered.length === 0 ||
-        source.title.toLowerCase().includes(lowered) ||
-        (source.description ?? "").toLowerCase().includes(lowered) ||
-        source.tags.some((tag) => tag.toLowerCase().includes(lowered)) ||
-        (source.language ? (LANGUAGE_LABELS[source.language] ?? source.language).toLowerCase().includes(lowered) : false) ||
-        (source.type ? (SOURCE_TYPE_LABELS[source.type] ?? source.type).toLowerCase().includes(lowered) : false) ||
-        source.categories.some((item) => (SOURCE_CATEGORY_LABELS[item] ?? item).toLowerCase().includes(lowered));
-
-      const matchesLanguage = language === "all" || source.language === language;
-      const matchesType = type === "all" || source.type === type;
-      const matchesCategory = category === "all" || source.categories.includes(category);
-
-      return matchesQuery && matchesLanguage && matchesType && matchesCategory;
-    });
-
-    const ranked = [...filtered];
+    const ranked = [...sourceItems];
     ranked.sort((left, right) => {
       if (sortKey === "title_asc") return left.title.localeCompare(right.title);
       if (sortKey === "registered_desc") {
@@ -116,7 +98,59 @@ export function SourcesSection({
     });
 
     return ranked;
-  }, [category, language, query, sortKey, sourceItems, type]);
+  }, [sortKey, sourceItems]);
+
+  const activeFilters = useMemo(
+    () => ({
+      keyword: deferredQuery.trim() || undefined,
+      language: language === "all" ? undefined : language,
+      type: type === "all" ? undefined : type,
+      category: category === "all" ? undefined : category,
+    }),
+    [category, deferredQuery, language, type],
+  );
+
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function refreshSources(): Promise<void> {
+      setIsRefreshing(true);
+      try {
+        const response = await listSources(
+          {
+            ...activeFilters,
+            page: "1",
+            limit: String(pageSize),
+          },
+          { signal: controller.signal },
+        );
+        setSourceItems(response.items);
+        setCurrentPage(response.page);
+        setTotalCount(response.total);
+      } catch (error) {
+        if (!(error instanceof Error) || error.name !== "AbortError") {
+          setSourceItems([]);
+          setCurrentPage(1);
+          setTotalCount(0);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsRefreshing(false);
+        }
+      }
+    }
+
+    void refreshSources();
+
+    return () => {
+      controller.abort();
+    };
+  }, [activeFilters, pageSize]);
 
   const hasMore = sourceItems.length < totalCount;
 
@@ -126,7 +160,11 @@ export function SourcesSection({
     setIsLoadingMore(true);
     try {
       const nextPage = currentPage + 1;
-      const response = await listSources({ page: String(nextPage), limit: String(pageSize) });
+      const response = await listSources({
+        ...activeFilters,
+        page: String(nextPage),
+        limit: String(pageSize),
+      });
       setSourceItems((current) => {
         const seen = new Set(current.map((item) => item.id));
         const appended = response.items.filter((item) => !seen.has(item.id));
@@ -190,7 +228,19 @@ export function SourcesSection({
             <div className="flex">
               <SourceRegisterDialog
                 onSuccess={(source) => {
+                  const matchesKeyword =
+                    !activeFilters.keyword ||
+                    source.title.toLowerCase().includes(activeFilters.keyword.toLowerCase()) ||
+                    (source.description ?? "").toLowerCase().includes(activeFilters.keyword.toLowerCase()) ||
+                    source.tags.some((tag) => tag.toLowerCase().includes(activeFilters.keyword!.toLowerCase()));
+                  const matchesLanguage = !activeFilters.language || source.language === activeFilters.language;
+                  const matchesType = !activeFilters.type || source.type === activeFilters.type;
+                  const matchesCategory = !activeFilters.category || source.categories.includes(activeFilters.category);
+
                   setSourceItems((current) => {
+                    if (!matchesKeyword || !matchesLanguage || !matchesType || !matchesCategory) {
+                      return current;
+                    }
                     if (current.some((item) => item.id === source.id)) {
                       return current;
                     }
@@ -262,7 +312,7 @@ export function SourcesSection({
       <div className="px-6 md:px-10">
         {filteredSources.length === 0 ? (
           <div className="border border-dashed border-border bg-card/40 px-5 py-10 text-center text-sm text-muted-foreground">
-            No sources matched the current search and filter combination.
+            {isRefreshing ? "Searching sources..." : "No sources matched the current search and filter combination."}
           </div>
         ) : (
           <div className="space-y-4">

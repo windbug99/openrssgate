@@ -61,6 +61,17 @@ export type SourceValidation = {
   feed_format: string | null;
 };
 
+export type SourceAutofill = {
+  language: LanguageCode | null;
+  type: SourceType | null;
+  categories: SourceCategory[];
+  tags: SourceTag[];
+  source: string;
+  confidence: Record<string, string>;
+  reasoning: Record<string, string>;
+  samples_used: number;
+};
+
 type SourceListResponse = {
   items: Source[];
   page: number;
@@ -103,13 +114,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function listSources(params?: Record<string, string | undefined>): Promise<SourceListResponse> {
+export async function listSources(
+  params?: Record<string, string | undefined>,
+  init?: RequestInit,
+): Promise<SourceListResponse> {
   const search = new URLSearchParams();
   Object.entries(params ?? {}).forEach(([key, value]) => {
     if (value) search.set(key, value);
   });
   const query = search.toString();
-  return request<SourceListResponse>(`/sources${query ? `?${query}` : ""}`);
+  return request<SourceListResponse>(`/sources${query ? `?${query}` : ""}`, init);
 }
 
 export async function listFeeds(params?: Record<string, string | undefined>): Promise<FeedListResponse> {
@@ -137,6 +151,19 @@ export async function validateSource(payload: {
   tags?: SourceTag[];
 }): Promise<SourceValidation> {
   return request<SourceValidation>("/sources/validate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function autofillSource(payload: {
+  rss_url: string;
+  language?: LanguageCode;
+  type?: SourceType;
+  categories?: SourceCategory[];
+  tags?: SourceTag[];
+}): Promise<SourceAutofill> {
+  return request<SourceAutofill>("/sources/autofill", {
     method: "POST",
     body: JSON.stringify(payload),
   });
