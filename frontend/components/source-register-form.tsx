@@ -130,11 +130,15 @@ export function SourceRegisterForm({
   mode = "create",
   initialValues,
   onUpdate,
+  onDelete,
+  deleting = false,
 }: {
   onSuccess?: (source: Source) => void;
   mode?: "create" | "edit";
   initialValues?: Partial<FormState>;
   onUpdate?: (payload: EditPayload) => Promise<void>;
+  onDelete?: () => void;
+  deleting?: boolean;
 }) {
   const [form, setForm] = useState<FormState>(() => buildInitialState(initialValues));
   const [saving, setSaving] = useState(false);
@@ -466,6 +470,17 @@ export function SourceRegisterForm({
           <Button type="submit" disabled={saving} className="h-12 rounded-none px-6">
             {saving ? (isEditMode ? "Saving..." : "Registering...") : isEditMode ? "Save source" : "Register Source"}
           </Button>
+          {isEditMode && onDelete ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving || deleting}
+              onClick={onDelete}
+              className="h-12 rounded-none border-destructive px-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              {deleting ? "Deleting..." : "Delete source"}
+            </Button>
+          ) : null}
         </div>
       </form>
     </div>

@@ -8,9 +8,10 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { SourceCard } from "@/components/source-card";
 import { SourceRegisterForm } from "@/components/source-register-form";
 import { FilterDropdown } from "@/components/filter-dropdown";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { searchAdminSources, getAdminMe, updateAdminSource, type AdminSource, type AdminUser } from "@/lib/admin-api";
+import { deleteAdminSource, searchAdminSources, getAdminMe, updateAdminSource, type AdminSource, type AdminUser } from "@/lib/admin-api";
 import type { Source } from "@/lib/api";
 import {
   LANGUAGE_OPTIONS,
@@ -47,11 +48,13 @@ export function AdminSourcesCatalog() {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [items, setItems] = useState<AdminSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<AdminSource | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<AdminSource | null>(null);
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<LanguageCode | "all">("all");
   const [type, setType] = useState<SourceType | "all">("all");
   const [category, setCategory] = useState<SourceCategory | "all">("all");
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const deferredQuery = useDeferredValue(query);
 
   const languageOptions = useMemo(
@@ -110,6 +113,26 @@ export function AdminSourcesCatalog() {
     });
     setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     setSelectedSource(updated);
+  }
+
+  async function handleDelete() {
+    if (!deleteCandidate) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      await deleteAdminSource(deleteCandidate.id);
+      setItems((current) => current.filter((item) => item.id !== deleteCandidate.id));
+      setSelectedSource(null);
+      setDeleteCandidate(null);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete source.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -206,8 +229,42 @@ export function AdminSourcesCatalog() {
                     await handleUpdate(selectedSource.id, payload);
                     setSelectedSource(null);
                   }}
+                  onDelete={() => setDeleteCandidate(selectedSource)}
+                  deleting={isDeleting && deleteCandidate?.id === selectedSource.id}
                 />
               </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteCandidate)} onOpenChange={(open) => (!open ? setDeleteCandidate(null) : undefined)}>
+        <DialogContent className="max-w-xl">
+          {deleteCandidate ? (
+            <>
+              <DialogHeader className="py-5">
+                <DialogTitle>Delete source</DialogTitle>
+              </DialogHeader>
+              <div className="px-6 py-5">
+                <DialogDescription className="text-base leading-7">
+                  This will permanently remove <span className="font-medium text-foreground">{deleteCandidate.title}</span> from the index.
+                  This action cannot be undone.
+                </DialogDescription>
+              </div>
+              <DialogFooter className="border-t border-border/80 px-6 py-5 sm:justify-start sm:space-x-3">
+                <Button type="button" disabled={isDeleting} className="h-12 rounded-none px-6" onClick={() => void handleDelete()}>
+                  {isDeleting ? "Deleting..." : "Delete source"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isDeleting}
+                  className="h-12 rounded-none px-6"
+                  onClick={() => setDeleteCandidate(null)}
+                >
+                  Cancel
+                </Button>
+              </DialogFooter>
             </>
           ) : null}
         </DialogContent>
