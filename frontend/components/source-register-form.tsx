@@ -18,6 +18,7 @@ import {
   type SourceTag,
   type SourceType,
 } from "@/lib/source-metadata";
+import { cn } from "@/lib/utils";
 
 const initialState = {
   rss_url: "",
@@ -26,6 +27,8 @@ const initialState = {
   categories: [] as SourceCategory[],
   tags: [] as SourceTag[],
 };
+
+type ActionState = "idle" | "success" | "error";
 
 function getStatusMessage(source: Source): string {
   if (source.status === "active") {
@@ -96,6 +99,16 @@ function getAutofillMessage(appliedFields: string[]): string {
   return `Applied to empty fields: ${appliedFields.join(", ")}.`;
 }
 
+function getActionButtonClass(state: ActionState): string {
+  if (state === "success") {
+    return "border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400";
+  }
+  if (state === "error") {
+    return "border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive";
+  }
+  return "border-border/80";
+}
+
 export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source) => void }) {
   const [form, setForm] = useState(initialState);
   const [saving, setSaving] = useState(false);
@@ -107,6 +120,8 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [autofillError, setAutofillError] = useState<string | null>(null);
+  const [validateActionState, setValidateActionState] = useState<ActionState>("idle");
+  const [autofillActionState, setAutofillActionState] = useState<ActionState>("idle");
 
   async function handleValidate() {
     if (!form.rss_url.trim()) {
@@ -118,6 +133,8 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
     setValidating(true);
     setValidationError(null);
     setAutofillError(null);
+    setValidateActionState("idle");
+    setAutofillActionState("idle");
     setError(null);
 
     try {
@@ -130,6 +147,7 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       });
       setValidatedSource(result);
       setAutofillResult(null);
+      setValidateActionState("success");
       setForm((current) => ({
         ...current,
         rss_url: result.rss_url || current.rss_url,
@@ -141,6 +159,8 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
     } catch (submitError) {
       setValidatedSource(null);
       setAutofillResult(null);
+      setValidateActionState("error");
+      setAutofillActionState("idle");
       setValidationError(submitError instanceof Error ? submitError.message : "Source validation failed.");
     } finally {
       setValidating(false);
@@ -150,11 +170,13 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
   async function handleAutofill() {
     if (!validatedSource) {
       setAutofillError("Validate the RSS URL before autofill.");
+      setAutofillActionState("error");
       return;
     }
 
     setAutofilling(true);
     setAutofillError(null);
+    setAutofillActionState("idle");
     setError(null);
 
     try {
@@ -193,8 +215,10 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
           summary: getAutofillMessage(appliedFields),
         },
       });
+      setAutofillActionState("success");
     } catch (submitError) {
       setAutofillResult(null);
+      setAutofillActionState("error");
       setAutofillError(submitError instanceof Error ? submitError.message : "Metadata autofill failed.");
     } finally {
       setAutofilling(false);
@@ -219,6 +243,8 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       setAutofillResult(null);
       setValidationError(null);
       setAutofillError(null);
+      setValidateActionState("idle");
+      setAutofillActionState("idle");
       setForm(initialState);
       onSuccess?.(source);
     } catch (submitError) {
@@ -244,8 +270,8 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
       {error ? <div className="border border-border/80 bg-muted/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-3 md:col-span-2 md:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-            <div className="space-y-2">
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+            <div>
               <Input
                 className="h-12 rounded-none border-border/80 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 placeholder="https://blog.example.com/rss.xml"
@@ -255,12 +281,35 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
                   setForm((current) => ({ ...current, rss_url: nextValue }));
                   setValidatedSource((current) => (current?.rss_url === nextValue ? current : null));
                   setAutofillResult(null);
+                  setValidationError(null);
                   setAutofillError(null);
+                  setValidateActionState("idle");
+                  setAutofillActionState("idle");
                 }}
                 required
               />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={validating || saving}
+              className={cn("h-12 rounded-none px-6", getActionButtonClass(validateActionState))}
+              onClick={handleValidate}
+            >
+                {validating ? "Validating..." : "Validate first"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!validatedSource || autofilling || validating || saving}
+              className={cn("h-12 rounded-none px-6", getActionButtonClass(autofillActionState))}
+              onClick={handleAutofill}
+            >
+              {autofilling ? "Autofilling..." : "Autofill Metadata"}
+            </Button>
+            <div className="space-y-1 text-xs leading-5 md:col-span-3">
               {validatedSource ? (
-                <div className="space-y-1 text-xs leading-5">
+                <>
                   <div className="text-emerald-500">{getValidationMessage(validatedSource)}</div>
                   <div className="text-muted-foreground">
                     {(() => {
@@ -271,32 +320,18 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
                       return `Auto-applied to empty fields: ${fields.join(", ")}.`;
                     })()}
                   </div>
-                </div>
+                </>
               ) : null}
-              {validationError ? <div className="text-xs leading-5 text-destructive">{validationError}</div> : null}
+              {validationError ? <div className="text-destructive">{validationError}</div> : null}
               {autofillResult ? (
-                <div className="space-y-1 text-xs leading-5">
+                <>
                   <div className="text-emerald-500">
                     Autofill {autofillResult.source} · {autofillResult.samples_used} sample{autofillResult.samples_used === 1 ? "" : "s"}
                   </div>
                   <div className="text-muted-foreground">{autofillResult.reasoning.summary}</div>
-                </div>
+                </>
               ) : null}
-              {autofillError ? <div className="text-xs leading-5 text-destructive">{autofillError}</div> : null}
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Button type="button" variant="outline" disabled={validating || saving} className="h-12 rounded-none px-6" onClick={handleValidate}>
-                {validating ? "Validating..." : "Validate first"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!validatedSource || autofilling || validating || saving}
-                className="h-12 rounded-none px-6"
-                onClick={handleAutofill}
-              >
-                {autofilling ? "Autofilling..." : "Autofill Metadata"}
-              </Button>
+              {autofillError ? <div className="text-destructive">{autofillError}</div> : null}
             </div>
           </div>
           <label className="space-y-2">
