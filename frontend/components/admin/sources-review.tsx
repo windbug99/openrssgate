@@ -227,6 +227,13 @@ export function AdminSourcesReview() {
                         <p className="break-all text-base text-foreground">{selected.rss_url}</p>
                       </div>
                       <Link
+                        href={selected.rss_url}
+                        target="_blank"
+                        className="inline-flex h-14 items-center justify-center border border-border/80 px-4 text-sm text-foreground"
+                      >
+                        Open RSS URL
+                      </Link>
+                      <Link
                         href={selected.site_url}
                         target="_blank"
                         className="inline-flex h-14 items-center justify-center border border-border/80 px-4 text-sm text-foreground"
