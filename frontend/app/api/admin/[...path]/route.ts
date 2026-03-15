@@ -27,9 +27,13 @@ async function proxyAdminRequest(request: NextRequest, context: { params: Promis
   });
 
   const responseHeaders = new Headers(upstreamResponse.headers);
-  const setCookie = upstreamResponse.headers.get("set-cookie");
-  if (setCookie) {
-    responseHeaders.set("set-cookie", setCookie);
+  const setCookies =
+    typeof upstreamResponse.headers.getSetCookie === "function"
+      ? upstreamResponse.headers.getSetCookie()
+      : [];
+  responseHeaders.delete("set-cookie");
+  for (const cookie of setCookies) {
+    responseHeaders.append("set-cookie", cookie);
   }
 
   return new Response(upstreamResponse.body, {
