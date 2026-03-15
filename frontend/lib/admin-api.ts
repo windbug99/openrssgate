@@ -29,6 +29,7 @@ export type AdminSource = {
   site_url: string;
   title: string;
   description: string | null;
+  favicon_url: string | null;
   status: string;
   status_reason: string | null;
   registered_at: string;

@@ -56,6 +56,7 @@ class AdminSourceResponse(BaseModel):
     site_url: str
     title: str
     description: str | None
+    favicon_url: str | None
     status: str
     status_reason: str | None
     registered_at: datetime

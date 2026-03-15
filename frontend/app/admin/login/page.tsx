@@ -3,11 +3,7 @@ import { AdminLoginForm } from "@/components/admin/login-form";
 
 export default function AdminLoginPage() {
   return (
-    <AdminShell
-      showAdminNav={false}
-      title="Moderate source quality"
-      description="Review pending submissions, hide low-quality feeds, reject spam, and inspect moderation history from a single admin console."
-    >
+    <AdminShell showAdminNav={false}>
       <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
         <section className="space-y-6 border border-border/80 bg-card/20 px-6 py-8">
           <div className="space-y-2">

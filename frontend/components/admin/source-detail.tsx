@@ -9,7 +9,6 @@ import { deleteAdminSource, getAdminSource, listAdminSourceAuditLogs, updateAdmi
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export function AdminSourceDetail({ sourceId }: { sourceId: string }) {
@@ -61,62 +60,55 @@ export function AdminSourceDetail({ sourceId }: { sourceId: string }) {
   }
 
   return (
-    <AdminShell
-      title={source?.title ?? "Source detail"}
-      description="Inspect a single source, review moderation metadata, and apply a status change with a reason."
-    >
+    <AdminShell>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
           <Link href="/admin/queues" className="text-sm text-foreground underline underline-offset-4">
             Back to queues
           </Link>
-          <Card className="border-border/80 bg-card/30">
-            <CardHeader>
-              <CardTitle className="text-3xl tracking-[-0.04em]">{source?.title ?? "Loading..."}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {source ? (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge>{source.status}</Badge>
-                    {source.status_reason ? <Badge variant="outline">{source.status_reason}</Badge> : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{source.description ?? "No description provided."}</p>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="border border-border/80 bg-background px-4 py-4 text-sm">{source.rss_url}</div>
-                    <div className="border border-border/80 bg-background px-4 py-4 text-sm">{source.site_url}</div>
-                  </div>
-                  <label className="block space-y-2">
-                    <span className="text-sm text-foreground">Reason</span>
-                    <Input value={reason} onChange={(event) => setReason(event.target.value)} />
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    <Button type="button" disabled={isPending} onClick={() => handleStatus("active")} className="bg-foreground text-background hover:opacity-90">
-                      Restore active
-                    </Button>
-                    <Button type="button" disabled={isPending} variant="outline" onClick={() => handleStatus("hidden")}>
-                      Mark hidden
-                    </Button>
-                    <Button type="button" disabled={isPending} variant="outline" onClick={() => handleStatus("rejected")}>
-                      Mark rejected
-                    </Button>
-                    <Button type="button" disabled={isPending} variant="outline" className="border-destructive text-destructive hover:bg-destructive/10" onClick={handleDelete}>
-                      Delete source
-                    </Button>
-                  </div>
-                  {error ? <p className="text-sm text-destructive">{error}</p> : null}
-                </>
-              ) : null}
-            </CardContent>
-          </Card>
+          <div className="space-y-5 border-y border-border/80 py-5">
+            {source ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <Badge>{source.status}</Badge>
+                  {source.status_reason ? <Badge variant="outline">{source.status_reason}</Badge> : null}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-semibold tracking-[-0.04em]">{source.title}</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">{source.description ?? "No description provided."}</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="border-r border-border/80 pr-4 text-sm break-all">{source.rss_url}</div>
+                  <div className="text-sm break-all">{source.site_url}</div>
+                </div>
+                <label className="block space-y-2">
+                  <span className="text-sm text-foreground">Reason</span>
+                  <Input value={reason} onChange={(event) => setReason(event.target.value)} />
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <Button type="button" disabled={isPending} onClick={() => handleStatus("active")} className="bg-foreground text-background hover:opacity-90">
+                    Restore active
+                  </Button>
+                  <Button type="button" disabled={isPending} variant="outline" onClick={() => handleStatus("hidden")}>
+                    Mark hidden
+                  </Button>
+                  <Button type="button" disabled={isPending} variant="outline" onClick={() => handleStatus("rejected")}>
+                    Mark rejected
+                  </Button>
+                  <Button type="button" disabled={isPending} variant="outline" className="border-destructive text-destructive hover:bg-destructive/10" onClick={handleDelete}>
+                    Delete source
+                  </Button>
+                </div>
+                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              </>
+            ) : null}
+          </div>
         </div>
-        <Card className="h-fit border-border/80 bg-card/30">
-          <CardHeader>
-            <CardTitle className="text-xl">Audit Trail</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="h-fit border-y border-border/80 py-5">
+          <p className="mb-4 text-sm font-medium text-foreground">Audit Trail</p>
+          <div className="space-y-3">
             {auditLogs.map((entry) => (
-              <div key={entry.id} className="border border-border/80 bg-background px-3 py-3">
+              <div key={entry.id} className="border-b border-border/80 pb-3">
                 <p className="text-sm font-medium">{entry.action}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{entry.admin_user_email ?? "unknown"}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -129,8 +121,8 @@ export function AdminSourceDetail({ sourceId }: { sourceId: string }) {
               </div>
             ))}
             {!auditLogs.length ? <p className="text-sm text-muted-foreground">No audit entries are recorded for this source.</p> : null}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </AdminShell>
   );

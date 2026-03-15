@@ -70,6 +70,7 @@ def _serialize_source(source: Source) -> AdminSourceResponse:
         site_url=source.site_url,
         title=source.title,
         description=source.description,
+        favicon_url=source.favicon_url,
         status=source.status,
         status_reason=source.status_reason,
         registered_at=source.registered_at,

@@ -42,11 +42,7 @@ export function AdminTotpSetup() {
   }
 
   return (
-    <AdminShell
-      showAdminNav={false}
-      title="Complete two-factor setup"
-      description="Register the shared key in your authenticator app, then confirm the six-digit code to unlock the admin console."
-    >
+    <AdminShell showAdminNav={false}>
       <div className="mx-auto max-w-2xl">
         <Card className="border-border/80 bg-card/30">
           <CardHeader>
