@@ -24,6 +24,26 @@ function statusBadgeVariant(status: string): "default" | "secondary" | "outline"
   return "secondary";
 }
 
+function getReasonClass(reason: string | null): string {
+  switch (reason) {
+    case "spam":
+    case "aggressive_advertising":
+    case "harmful":
+    case "illegal":
+      return "border-rose-500/80 text-rose-300";
+    case "stale_feed":
+    case "too_few_entries":
+    case "missing_published_dates":
+    case "repetitive_entry_titles":
+      return "border-sky-500/80 text-sky-300";
+    case "manual_review":
+    case "missing_description":
+      return "border-amber-500/80 text-amber-300";
+    default:
+      return "border-border/80 text-foreground";
+  }
+}
+
 export function AdminSourcesReview() {
   const router = useRouter();
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("pending_review");
@@ -155,11 +175,14 @@ export function AdminSourcesReview() {
                 </div>
               </div>
             </div>
-            <div className="border-l border-border/80 pl-4 text-sm text-muted-foreground md:pl-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Reason</p>
-              <p className="mt-2 line-clamp-3 text-sm leading-6 text-foreground">
+            <div className="border-l border-border/80 pl-4 md:pl-5">
+              <div
+                className={`inline-flex h-[52px] w-[220px] items-center justify-center rounded-none border bg-muted/10 px-3 text-center text-sm font-medium ${getReasonClass(
+                  item.status_reason,
+                )}`}
+              >
                 {item.status_reason ?? "No reason"}
-              </p>
+              </div>
             </div>
           </button>
         ))}
