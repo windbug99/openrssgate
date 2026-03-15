@@ -80,7 +80,9 @@ export function FilterDropdown<T extends string>({
               key={option.value}
               type="button"
               className="flex h-11 w-full items-center justify-between border-b border-border px-4 text-left text-sm text-foreground last:border-b-0 hover:bg-muted/40"
-              onClick={() => {
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
                 onChange(option.value);
                 setOpen(false);
               }}

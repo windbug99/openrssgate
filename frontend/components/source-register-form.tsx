@@ -4,6 +4,7 @@ import { Filter } from "lucide-react";
 import { useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { SearchableSlotSelect } from "@/components/searchable-slot-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { autofillSource, createSource, validateSource, type Source, type SourceAutofill, type SourceValidation } from "@/lib/api";
@@ -41,16 +42,6 @@ function getStatusMessage(source: Source): string {
     return `${source.title} was received, but it was not approved for public listing.`;
   }
   return `${source.title} has been registered and is awaiting review.`;
-}
-
-function toggleLimitedSelection<T extends string>(current: T[], value: T, maxCount: number): T[] {
-  if (current.includes(value)) {
-    return current.filter((item) => item !== value);
-  }
-  if (current.length >= maxCount) {
-    return current;
-  }
-  return [...current, value];
 }
 
 function mergeLimitedSelection<T extends string>(current: T[], detected: T[], maxCount: number): T[] {
@@ -358,72 +349,32 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
             />
           </label>
-          <div className="space-y-2 md:col-span-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Categories</span>
-              <span className="text-xs text-muted-foreground">
-                Up to {SOURCE_LIMITS.maxCategories}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {SOURCE_CATEGORY_OPTIONS.map((option) => {
-                const selected = form.categories.includes(option.value);
-                const disabled = !selected && form.categories.length >= SOURCE_LIMITS.maxCategories;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="h-10 rounded-none border border-border/80 px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 data-[selected=true]:bg-foreground data-[selected=true]:text-background"
-                    data-selected={selected}
-                    disabled={disabled}
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        categories: toggleLimitedSelection(
-                          current.categories,
-                          option.value,
-                          SOURCE_LIMITS.maxCategories,
-                        ),
-                      }))
-                    }
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="md:col-span-2">
+            <SearchableSlotSelect
+              label="Categories"
+              value={form.categories}
+              onChange={(categories) => setForm((current) => ({ ...current, categories }))}
+              options={SOURCE_CATEGORY_OPTIONS}
+              slotCount={SOURCE_LIMITS.maxCategories}
+              columns={2}
+              placeholder="Search category"
+              emptyMessage="No categories matched."
+            />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Tags</span>
-              <span className="text-xs text-muted-foreground">Up to {SOURCE_LIMITS.maxTags}</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {SOURCE_TAG_OPTIONS.map((option) => {
-                const selected = form.tags.includes(option.value);
-                const disabled = !selected && form.tags.length >= SOURCE_LIMITS.maxTags;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="h-10 rounded-none border border-border/80 px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 data-[selected=true]:bg-foreground data-[selected=true]:text-background"
-                    data-selected={selected}
-                    disabled={disabled}
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        tags: toggleLimitedSelection(current.tags, option.value, SOURCE_LIMITS.maxTags),
-                      }))
-                    }
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="md:col-span-2">
+            <SearchableSlotSelect
+              label="Tags"
+              value={form.tags}
+              onChange={(tags) => setForm((current) => ({ ...current, tags }))}
+              options={SOURCE_TAG_OPTIONS}
+              slotCount={SOURCE_LIMITS.maxTags}
+              columns={3}
+              placeholder="Search tag"
+              emptyMessage="No tags matched."
+            />
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="mt-12 flex flex-wrap gap-3">
           <Button type="submit" disabled={saving} className="h-12 rounded-none px-6">
             {saving ? "Registering..." : "Register Source"}
           </Button>
