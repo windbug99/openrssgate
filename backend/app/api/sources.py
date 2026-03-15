@@ -30,10 +30,11 @@ from app.source_metadata import (
     join_csv,
     parse_csv,
 )
+from app.services.ai_review import build_validate_message, review_source_bundle_with_ai
 from app.services.cache import response_cache
 from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
-from app.services.review import _normalize_site_host, review_source_bundle
+from app.services.review import _normalize_site_host
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 from app.services.source_autofill import autofill_source_metadata, detect_tags_from_text
 
@@ -230,6 +231,12 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         ]
         categories = list(dict.fromkeys(detected_categories))
 
+    review_result = await review_source_bundle_with_ai(
+        metadata=metadata,
+        entries=bundle["entries"],
+        duplicate_site_url_exists=False,
+    )
+
     return SourceValidateResponse(
         valid=True,
         rss_url=normalized_rss_url,
@@ -242,6 +249,12 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         categories=categories,
         tags=_detect_tags(metadata, payload.tags),
         feed_format=str(metadata.get("feed_format") or "") or None,
+        status=review_result.final_decision.status,
+        status_reason=review_result.final_decision.reason,
+        review_source=review_result.review_source,
+        ai_review_reason=review_result.ai_review_reason,
+        ai_review_confidence=review_result.ai_review_confidence,
+        message=build_validate_message(review_result),
     )
 
 
@@ -336,15 +349,15 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
             detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
         ) from exc
 
-    decision = review_source_bundle(
+    review_result = await review_source_bundle_with_ai(
         metadata=metadata,
         entries=bundle["entries"],
         duplicate_site_url_exists=False,
     )
-    source.status = decision.status
-    source.status_reason = decision.reason
+    source.status = review_result.final_decision.status
+    source.status_reason = review_result.final_decision.reason
 
-    if decision.status == "active":
+    if review_result.final_decision.status == "active":
         ingest_source_bundle(
             db=db,
             source=source,

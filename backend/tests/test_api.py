@@ -302,7 +302,20 @@ def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:
                 "type": "blog",
                 "categories": "tech,media",
             },
-            "entries": [],
+            "entries": [
+                {
+                    "guid": "1",
+                    "title": "Backend reliability patterns for AI systems",
+                    "feed_url": "https://example.com/1",
+                    "published_at": datetime.now(UTC),
+                },
+                {
+                    "guid": "2",
+                    "title": "Operating queues and schedulers at scale",
+                    "feed_url": "https://example.com/2",
+                    "published_at": datetime.now(UTC),
+                },
+            ],
         }
 
     monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
@@ -316,6 +329,97 @@ def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:
     assert payload["type"] == "blog"
     assert payload["categories"] == ["tech", "media"]
     assert payload["tags"] == ["ai", "backend", "analysis"]
+    assert payload["status"] == "active"
+    assert payload["status_reason"] == "auto_approved"
+    assert payload["review_source"] == "rule"
+    assert payload["message"] == "등록 가능한 RSS로 확인되었습니다."
+
+
+def test_validate_source_endpoint_uses_ai_review_for_stale_feed(monkeypatch) -> None:
+    from app.api import sources as sources_module
+    from app.services.ai_review import SourceReviewResult
+    from app.services.review import ReviewDecision
+
+    stale_time = datetime.now(UTC) - timedelta(days=500)
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/stale.xml",
+                "site_url": "https://example.com",
+                "title": "Low Frequency Journal",
+                "description": "An annual research publication.",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "2024 annual letter", "feed_url": "https://example.com/1", "published_at": stale_time},
+                {"guid": "2", "title": "2023 annual letter", "feed_url": "https://example.com/2", "published_at": stale_time},
+            ],
+        }
+
+    async def fake_review_source_bundle_with_ai(**_: object) -> SourceReviewResult:
+        return SourceReviewResult(
+            initial_decision=ReviewDecision(status="hidden", reason="stale_feed"),
+            final_decision=ReviewDecision(status="active", reason="ai_override"),
+            review_source="ai",
+            ai_review_reason="Legitimate low-frequency publication with coherent entries.",
+            ai_review_confidence="high",
+        )
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+    monkeypatch.setattr(sources_module, "review_source_bundle_with_ai", fake_review_source_bundle_with_ai)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/stale.xml", "tags": []})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "active"
+    assert payload["status_reason"] == "ai_override"
+    assert payload["review_source"] == "ai"
+    assert payload["ai_review_confidence"] == "high"
+    assert payload["ai_review_reason"] == "Legitimate low-frequency publication with coherent entries."
+    assert payload["message"] == "초기 자동 검토에서는 보류 대상이었지만, AI 재검토 결과 등록 가능한 정상 소스로 판단되었습니다."
+
+
+def test_validate_source_endpoint_reports_rule_fallback_when_ai_review_fails(monkeypatch) -> None:
+    from app.api import sources as sources_module
+    from app.services.ai_review import SourceReviewResult
+    from app.services.review import ReviewDecision
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/few.xml",
+                "site_url": "https://example.com",
+                "title": "Sparse Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Only entry", "feed_url": "https://example.com/1", "published_at": datetime.now(UTC)},
+            ],
+        }
+
+    async def fake_review_source_bundle_with_ai(**_: object) -> SourceReviewResult:
+        return SourceReviewResult(
+            initial_decision=ReviewDecision(status="hidden", reason="too_few_entries"),
+            final_decision=ReviewDecision(status="hidden", reason="too_few_entries"),
+            review_source="rule_fallback",
+        )
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+    monkeypatch.setattr(sources_module, "review_source_bundle_with_ai", fake_review_source_bundle_with_ai)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/few.xml", "tags": []})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "too_few_entries"
+    assert payload["review_source"] == "rule_fallback"
+    assert payload["message"] == "자동 검토 결과 엔트리가 너무 적어 공개 보류 대상으로 판단되었습니다. AI 재검토는 완료되지 않아 1차 검증 결과를 표시합니다."
 
 
 def test_autofill_source_endpoint_returns_heuristic_metadata(monkeypatch) -> None:
@@ -851,7 +955,7 @@ def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
     assert response.status_code == 201
     payload = response.json()
     assert payload["status"] == "rejected"
-    assert payload["status_reason"] == "generic_or_invalid_title"
+    assert payload["status_reason"] == "no_feed_entries"
 
 
 def test_create_source_can_be_rejected_for_duplicate_site_url(monkeypatch) -> None:
@@ -982,7 +1086,7 @@ def test_create_source_can_be_hidden_for_stale_feed(monkeypatch) -> None:
         def enforce(self, **_: object) -> None:
             return None
 
-    stale_time = datetime.now(UTC) - timedelta(days=60)
+    stale_time = datetime.now(UTC) - timedelta(days=366)
 
     async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
         return {

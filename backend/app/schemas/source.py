@@ -112,6 +112,12 @@ class SourceValidateResponse(BaseModel):
     categories: list[str]
     tags: list[str]
     feed_format: str | None
+    status: str
+    status_reason: str | None
+    review_source: str
+    ai_review_reason: str | None = None
+    ai_review_confidence: str | None = None
+    message: str
 
 
 class SourceAutofillResponse(BaseModel):

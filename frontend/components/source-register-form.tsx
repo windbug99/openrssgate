@@ -1,6 +1,5 @@
 "use client";
 
-import { Filter } from "lucide-react";
 import { useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -332,7 +331,6 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
               onChange={(value) => setForm((current) => ({ ...current, language: value as LanguageCode | "" }))}
               options={[{ value: "", label: "Select language" }, ...LANGUAGE_OPTIONS]}
               placeholder="Select language"
-              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
               className="relative"
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
             />
@@ -344,7 +342,6 @@ export function SourceRegisterForm({ onSuccess }: { onSuccess?: (source: Source)
               onChange={(value) => setForm((current) => ({ ...current, type: value as SourceType | "" }))}
               options={[{ value: "", label: "Select type" }, ...SOURCE_TYPE_OPTIONS]}
               placeholder="Select type"
-              icon={<Filter className="h-4 w-4 text-muted-foreground" />}
               className="relative"
               buttonClassName="flex h-12 w-full items-center justify-between border border-border/80 bg-transparent px-4 text-left text-sm text-foreground"
             />
