@@ -100,11 +100,11 @@ Reference file:
 
 1. Provision PostgreSQL and set `DATABASE_URL`.
 2. Run `python scripts/check_deploy_env.py` in `backend/`.
-2. Deploy Railway API service.
-3. Deploy Railway worker service.
-4. Verify `GET /health`.
-5. Verify `backend/scripts/mcp_smoke_test.py` against the deployed API.
-6. Deploy Vercel frontend with `NEXT_PUBLIC_API_BASE_URL`.
+3. Deploy Railway API service.
+4. Deploy Railway worker service.
+5. Verify `GET /health`.
+6. Verify `backend/scripts/mcp_smoke_test.py` against the deployed API.
+7. Deploy Vercel frontend with `NEXT_PUBLIC_API_BASE_URL`.
 
 ## Post-deploy checks
 
@@ -115,6 +115,6 @@ Reference file:
 - `GET /mcp/tools` returns the tool manifest
 - `POST /mcp/call` returns valid tool results
 - Web homepage can register a source
-- Explore page can list sources and feeds
+- Web source section can list indexed sources
 
-Detailed step-by-step verification is documented in [post-deploy-checklist.md](/Users/tomato/cursor/openrssgate/docs/post-deploy-checklist.md).
+Detailed step-by-step verification is documented in [post-deploy-checklist.md](post-deploy-checklist.md).

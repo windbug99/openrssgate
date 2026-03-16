@@ -106,8 +106,7 @@ Expected:
 ## 5. Web Checks
 
 - Homepage loads
-- Explore page lists sources
-- Feed list renders without API errors
+- Source section lists sources
 - Source registration form opens
 
 ## 6. Connector Checks

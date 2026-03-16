@@ -10,18 +10,20 @@
 
 ## Claude Desktop 등록 값
 
+아래 값은 예시입니다. 실제 등록 시에는 자신의 저장소 절대경로로 바꿔야 합니다.
+
 ```text
 명령어
-/Users/tomato/cursor/openrssgate/backend/.venv/bin/python
+/absolute/path/to/openrssgate/backend/.venv/bin/python
 
 인수
-/Users/tomato/cursor/openrssgate/backend/scripts/mcp_stdio_server.py
+/absolute/path/to/openrssgate/backend/scripts/mcp_stdio_server.py
 ```
 
 ## 사전 준비
 
 ```bash
-cd /Users/tomato/cursor/openrssgate/backend
+cd backend
 source .venv/bin/activate
 .venv/bin/alembic upgrade head
 ```
@@ -31,11 +33,12 @@ source .venv/bin/activate
 로컬 DB 스키마가 오래되면 `ai_reviewed_at` 같은 컬럼 누락으로 tool call이 실패할 수 있으므로, 먼저 아래를 실행해 최신 상태로 맞추는 것이 안전합니다.
 
 ```bash
-cd /Users/tomato/cursor/openrssgate/backend
+cd backend
 source .venv/bin/activate
-DATABASE_URL=sqlite:////Users/tomato/cursor/openrssgate/backend/rssgateway.db .venv/bin/alembic stamp 20260312_0002
-sqlite3 /Users/tomato/cursor/openrssgate/backend/rssgateway.db < /Users/tomato/cursor/openrssgate/docs/20260315_add_ai_review_columns.sql
-DATABASE_URL=sqlite:////Users/tomato/cursor/openrssgate/backend/rssgateway.db .venv/bin/alembic upgrade head
+REPO_ROOT="$(pwd)/.."
+DATABASE_URL="sqlite:///$REPO_ROOT/backend/rssgateway.db" .venv/bin/alembic stamp 20260312_0002
+sqlite3 "$REPO_ROOT/backend/rssgateway.db" < "$REPO_ROOT/docs/20260315_add_ai_review_columns.sql"
+DATABASE_URL="sqlite:///$REPO_ROOT/backend/rssgateway.db" .venv/bin/alembic upgrade head
 ```
 
 ## 현재 제공 도구

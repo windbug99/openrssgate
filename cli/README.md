@@ -7,7 +7,7 @@
 Local install with `pipx`:
 
 ```bash
-cd /Users/tomato/cursor/openrssgate/cli
+cd cli
 pipx install .
 ```
 
@@ -32,9 +32,9 @@ Install directly from GitHub before the PyPI release:
 pipx install "git+https://github.com/<owner>/openrssgate.git#subdirectory=cli"
 ```
 
-Release steps are documented in [RELEASE.md](/Users/tomato/cursor/openrssgate/cli/RELEASE.md).
-Homebrew tap packaging notes are documented in [homebrew/README.md](/Users/tomato/cursor/openrssgate/cli/homebrew/README.md).
-External service setup steps are documented in [EXTERNAL_SETUP.md](/Users/tomato/cursor/openrssgate/cli/EXTERNAL_SETUP.md).
+Release steps are documented in [RELEASE.md](RELEASE.md).
+Homebrew tap packaging notes are documented in [homebrew/README.md](homebrew/README.md).
+External service setup steps are documented in [EXTERNAL_SETUP.md](EXTERNAL_SETUP.md).
 
 After Homebrew tap release:
 

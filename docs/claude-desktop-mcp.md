@@ -16,7 +16,7 @@ Note:
 Backend:
 
 ```bash
-cd /Users/tomato/cursor/openrssgate/backend
+cd backend
 source .venv/bin/activate
 .venv/bin/alembic upgrade head
 uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -25,7 +25,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 Optional collector:
 
 ```bash
-cd /Users/tomato/cursor/openrssgate/backend
+cd backend
 source .venv/bin/activate
 python -m app.collector.worker
 ```
@@ -33,7 +33,7 @@ python -m app.collector.worker
 ## 2. Run smoke test before Claude Desktop
 
 ```bash
-cd /Users/tomato/cursor/openrssgate/backend
+cd backend
 source .venv/bin/activate
 python scripts/mcp_smoke_test.py
 ```
@@ -56,7 +56,7 @@ Remote MCP endpoint:
 HTTP MCP URL: http://127.0.0.1:8000/mcp
 ```
 
-Local stdio registration values are documented in [docs/claude-desktop-local-mcp.md](/Users/tomato/cursor/openrssgate/docs/claude-desktop-local-mcp.md).
+Local stdio registration values are documented in [claude-desktop-local-mcp.md](claude-desktop-local-mcp.md).
 
 ## 4. Current practical recommendation
 
@@ -107,7 +107,7 @@ Use prompts that map directly to the current read-only tools.
 - `get_recent_feeds` can return results
 - HTTP session handshake completes and returns `Mcp-Session-Id`
 
-The broader deploy-time checks are documented in [post-deploy-checklist.md](/Users/tomato/cursor/openrssgate/docs/post-deploy-checklist.md).
+The broader deploy-time checks are documented in [post-deploy-checklist.md](post-deploy-checklist.md).
 
 ## 8. Current limitation
 
