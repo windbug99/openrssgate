@@ -78,6 +78,9 @@ class AdminSourceResponse(BaseModel):
 
 class AdminSourceListResponse(BaseModel):
     items: list[AdminSourceResponse]
+    page: int
+    limit: int
+    total: int
 
 
 class AdminSourceUpdateRequest(BaseModel):

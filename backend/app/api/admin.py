@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_session
@@ -255,24 +255,38 @@ def list_admin_sources(
 ) -> AdminSourceListResponse:
     _ = user
     query = select(Source)
+    count_query = select(func.count()).select_from(Source)
     if status:
         query = query.where(Source.status == status)
+        count_query = count_query.where(Source.status == status)
     if keyword:
         query = query.where(Source.title.ilike(f"%{keyword}%"))
+        count_query = count_query.where(Source.title.ilike(f"%{keyword}%"))
     if language:
         query = query.where(Source.language == language)
+        count_query = count_query.where(Source.language == language)
     if type:
         query = query.where(Source.source_type == type)
+        count_query = count_query.where(Source.source_type == type)
     if category:
         query = query.where(csv_contains(Source.categories, category))
+        count_query = count_query.where(csv_contains(Source.categories, category))
     if tag:
         query = query.where(csv_contains(Source.tags, tag))
+        count_query = count_query.where(csv_contains(Source.tags, tag))
 
     capped_limit = min(max(limit, 1), 100)
+    current_page = max(page, 1)
+    total = db.scalar(count_query) or 0
     sources = db.scalars(
-        query.order_by(Source.last_published_at.desc(), Source.registered_at.desc()).offset((max(page, 1) - 1) * capped_limit).limit(capped_limit)
+        query.order_by(Source.last_published_at.desc(), Source.registered_at.desc()).offset((current_page - 1) * capped_limit).limit(capped_limit)
     ).all()
-    return AdminSourceListResponse(items=[_serialize_source(source) for source in sources])
+    return AdminSourceListResponse(
+        items=[_serialize_source(source) for source in sources],
+        page=current_page,
+        limit=capped_limit,
+        total=total,
+    )
 
 
 @router.get("/sources/{source_id}", response_model=AdminSourceResponse)

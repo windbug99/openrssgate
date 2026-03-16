@@ -131,16 +131,16 @@ export function regenerateRecoveryCodes() {
 
 export function listAdminSources(status: string) {
   const query = new URLSearchParams({ status }).toString();
-  return adminRequest<{ items: AdminSource[] }>(`/sources?${query}`);
+  return adminRequest<{ items: AdminSource[]; page: number; limit: number; total: number }>(`/sources?${query}`);
 }
 
-export function searchAdminSources(params?: Record<string, string | undefined>) {
+export function searchAdminSources(params?: Record<string, string | undefined>, init?: RequestInit) {
   const search = new URLSearchParams();
   Object.entries(params ?? {}).forEach(([key, value]) => {
     if (value) search.set(key, value);
   });
   const query = search.toString();
-  return adminRequest<{ items: AdminSource[] }>(`/sources${query ? `?${query}` : ""}`);
+  return adminRequest<{ items: AdminSource[]; page: number; limit: number; total: number }>(`/sources${query ? `?${query}` : ""}`, init);
 }
 
 export function getAdminSource(sourceId: string) {
