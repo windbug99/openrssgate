@@ -2,7 +2,6 @@ import { ArrowRight, Rss } from "lucide-react";
 
 import { DocsSection } from "@/components/docs-section";
 import { SiteShell } from "@/components/site-shell";
-import { Badge } from "@/components/ui/badge";
 import { SourcesSection } from "@/components/sources-section";
 import { Button } from "@/components/ui/button";
 import { getStats, listSources } from "@/lib/api";
@@ -38,15 +37,17 @@ export default async function HomePage() {
       <section id="home" className="scroll-mt-24">
         <div className="bg-background px-6 py-14 text-center md:px-10 md:py-14">
           <div className="flex justify-center">
-            <Badge variant="outline" className="rounded-sm px-4 py-2 text-[13px] font-medium tracking-normal">
-              <Rss className="mr-2 h-3.5 w-3.5" />
-              Last fetched: {formatDateTime(latestFetchedAt)} · {stats.active_sources} active sources · {stats.feeds_last_24h} feeds in the last 24h
-            </Badge>
+            <div className="home-status-badge">
+              <Rss className="home-status-badge__icon h-3.5 w-3.5" />
+              <span>
+                Last fetched: {formatDateTime(latestFetchedAt)} · {stats.active_sources} active sources · {stats.feeds_last_24h} feeds in the last 24h
+              </span>
+            </div>
           </div>
 
           <div className="mx-auto mt-8 flex max-w-[900px] flex-col items-center space-y-5">
             <h2 className="max-w-[780px] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground">
-              RSS isn't dead. It's just scattered.
+              <span className="text-[#E86A17]">RSS</span> isn't dead. It's just scattered.
             </h2>
             <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
               Feeds are fragmented. Platforms decide what gets read.
