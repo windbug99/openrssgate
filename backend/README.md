@@ -89,6 +89,8 @@ python scripts/check_deploy_env.py
 Claude Desktop verification steps are documented in [docs/claude-desktop-mcp.md](/Users/tomato/cursor/openrssgate/docs/claude-desktop-mcp.md).
 Claude Desktop local stdio setup is documented in [docs/claude-desktop-local-mcp.md](/Users/tomato/cursor/openrssgate/docs/claude-desktop-local-mcp.md).
 
+If a Claude Desktop free-plan account does not expose remote MCP connector registration, use the local stdio guide instead of the remote HTTP MCP path.
+
 Deployment steps are documented in [docs/deployment-guide.md](/Users/tomato/cursor/openrssgate/docs/deployment-guide.md).
 
 ## Operations Summary

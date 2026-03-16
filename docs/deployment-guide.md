@@ -116,3 +116,5 @@ Reference file:
 - `POST /mcp/call` returns valid tool results
 - Web homepage can register a source
 - Explore page can list sources and feeds
+
+Detailed step-by-step verification is documented in [post-deploy-checklist.md](/Users/tomato/cursor/openrssgate/docs/post-deploy-checklist.md).

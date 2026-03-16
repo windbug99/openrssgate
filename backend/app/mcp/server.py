@@ -84,8 +84,8 @@ def _normalized_tool_definitions() -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for tool in get_mcp_tool_manifest()["tools"]:
         item = dict(tool)
-        if "input_schema" in item and "inputSchema" not in item:
-            item["inputSchema"] = item["input_schema"]
+        if "input_schema" in item:
+            item["inputSchema"] = item.pop("input_schema")
         normalized.append(item)
     return normalized
 

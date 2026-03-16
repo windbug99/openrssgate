@@ -9,6 +9,7 @@ Note:
 - The project now exposes a session-based remote MCP HTTP endpoint at `/mcp`.
 - Legacy debug endpoints `/mcp/tools`, `/mcp/sse`, and `/mcp/call` still exist for smoke tests and manual checks.
 - Local stdio MCP is still available when you want a purely local Claude Desktop setup.
+- Claude Desktop free-plan environments may not expose remote MCP connector registration. In that case, use the local stdio setup and revisit remote HTTP MCP later.
 
 ## 1. Start local services
 
@@ -47,6 +48,8 @@ Expected result:
 
 Use the remote MCP HTTP endpoint if you want a hosted connector, or the local stdio MCP server if you want a local-only setup.
 
+If your Claude Desktop account does not show a remote connector or HTTP MCP registration option, you cannot use the remote MCP transport from the app yet. That is an account or plan limitation, not an OpenRSSGate server issue.
+
 Remote MCP endpoint:
 
 ```text
@@ -55,7 +58,14 @@ HTTP MCP URL: http://127.0.0.1:8000/mcp
 
 Local stdio registration values are documented in [docs/claude-desktop-local-mcp.md](/Users/tomato/cursor/openrssgate/docs/claude-desktop-local-mcp.md).
 
-## 4. Legacy debug endpoints
+## 4. Current practical recommendation
+
+For this repository today:
+
+- Use remote HTTP MCP for smoke tests, deployment checks, and any client that supports remote MCP URLs.
+- Use local stdio MCP for Claude Desktop when the account is on a free plan and the remote connector UI is unavailable.
+
+## 5. Legacy debug endpoints
 
 These routes remain useful for smoke tests and custom debugging:
 
@@ -79,7 +89,7 @@ Tool names currently exposed:
 - `autofill_source`
 - `create_source`
 
-## 5. Suggested manual prompts
+## 6. Suggested manual prompts
 
 Use prompts that map directly to the current read-only tools.
 
@@ -89,7 +99,7 @@ Use prompts that map directly to the current read-only tools.
 특정 Source의 최신 글 목록을 보여줘
 ```
 
-## 6. Verification checklist
+## 7. Verification checklist
 
 - Claude Desktop connects through the remote HTTP MCP endpoint without transport errors
 - tool list is visible
@@ -97,6 +107,8 @@ Use prompts that map directly to the current read-only tools.
 - `get_recent_feeds` can return results
 - HTTP session handshake completes and returns `Mcp-Session-Id`
 
-## 7. Current limitation
+The broader deploy-time checks are documented in [post-deploy-checklist.md](/Users/tomato/cursor/openrssgate/docs/post-deploy-checklist.md).
+
+## 8. Current limitation
 
 This project implements the MCP session handshake and tool transport in FastAPI routes rather than through a dedicated FastMCP dependency. The legacy debug endpoints are still project-specific and should not be treated as the primary integration path.
