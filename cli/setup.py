@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="openrssgate",
-    version="0.1.2",
+    version="0.1.3",
     packages=find_packages(),
     install_requires=[
         "typer==0.16.1",
