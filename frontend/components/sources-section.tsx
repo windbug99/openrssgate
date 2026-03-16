@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, Database, Filter, Search, Signal } from "lucide-react";
+import { ArrowUpDown, Clock3, Database, Filter, Rss, Search, Signal } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -189,8 +189,8 @@ export function SourcesSection({
             Indexed sources
           </h2>
           <p className="w-full text-[16px] leading-[1.9] text-muted-foreground">
-            Search the public source index, filter the current catalog, and jump directly to the source site or its
-            RSS URL from the same list view.
+            Search the public source index, narrow the catalog with filters, and jump straight to the source site or
+            its RSS feed.
           </p>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -202,11 +202,17 @@ export function SourcesSection({
             <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(localStats.active_sources)}</div>
           </div>
           <div className="border border-border/80 bg-card/20 px-4 py-4">
-            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Indexed feeds</div>
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <Rss className="h-4 w-4" />
+              Indexed feeds
+            </div>
             <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(localStats.total_feeds)}</div>
           </div>
           <div className="border border-border/80 bg-card/20 px-4 py-4">
-            <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Feeds last 24h</div>
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <Clock3 className="h-4 w-4" />
+              Feeds last 24h
+            </div>
             <div className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{formatNumber(localStats.feeds_last_24h)}</div>
           </div>
         </div>

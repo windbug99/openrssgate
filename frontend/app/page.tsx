@@ -47,26 +47,22 @@ export default async function HomePage() {
 
           <div className="mx-auto mt-8 flex max-w-[900px] flex-col items-center space-y-5">
             <h2 className="max-w-[780px] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground">
-              <span className="text-[#E85D4A]">RSS</span> isn't dead. It's just scattered.
+              Keep the web flat
             </h2>
             <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
-              Feeds are fragmented. Platforms decide what gets read.
+              Platforms took over. Feeds got fragmented.
               <br />
-              The independent blogs, the honest opinions, the writing that matters —
-              <br />
-              buried under noise, invisible to algorithms.
+              The writing that matters got buried under noise.
             </p>
             <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
-              OpenRSSGate is a shared public index for RSS sources.
+              <span className="text-[#E85D4A]">RSS</span> is simple and intuitive and that makes it the right choice for the age ahead.
               <br />
-              Register once. Collected continuously. Accessible to everyone —
-              <br />
-              browsers, apps, terminal workflows, and AI agents
-              <br />
-              through REST, MCP, and CLI.
+              With clear intent and RSS, AI can find the content you want with less platform noise.
             </p>
             <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
-              Write anywhere. Be found everywhere.
+              Good writing only needs to be discovered.
+              <br />
+              <span className="font-medium text-foreground">Write anywhere. Be found everywhere.</span>
             </p>
           </div>
 

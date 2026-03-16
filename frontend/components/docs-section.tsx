@@ -79,24 +79,25 @@ const cliInfo = [
   {
     heading: "Install",
     lines: [
-      "Homebrew: brew tap windbug99/homebrew-tap && brew install openrssgate",
+      "Homebrew first install: brew tap windbug99/homebrew-tap && brew install openrssgate",
+      "Homebrew after tap: brew install openrssgate",
       "pipx: pipx install openrssgate",
     ],
   },
   {
     heading: "Find IDs",
     lines: [
-      "Find source ID: openrssgate list --keyword platformer",
-      "Use source feeds: openrssgate feeds <source_id>",
-      "Use single feed: openrssgate feed <feed_id>",
+      "Find source ID: org list --keyword platformer",
+      "Use source feeds: org feeds <source_id>",
+      "Use single feed: org feed <feed_id>",
     ],
   },
   {
     heading: "Run",
     lines: [
-      "List sources: openrssgate list",
-      "Recent feeds: openrssgate feeds --q openai --since 7d",
-      "Quick stats: openrssgate stats",
+      "List sources: org list",
+      "Recent feeds: org feeds --q openai --since 7d",
+      "Quick stats: org stats",
     ],
   },
   {
@@ -105,6 +106,7 @@ const cliInfo = [
       "Source vs feed: `feeds <source_id>` lists a source's feeds",
       "Single feed: `feed <feed_id>` shows one feed item only",
       "Validation: use a direct RSS URL, not a website homepage",
+      "Alias: `openrssgate` also works, but `org` is preferred",
     ],
   },
   {
@@ -243,8 +245,8 @@ export function DocsSection({ id }: DocsSectionProps) {
         <p className="mt-4 w-full text-[16px] leading-[1.9] text-muted-foreground">
           The source index is public and shared.
           <br />
-          How you access it is up to you — discover feeds in the browser, integrate via REST, call it as an AI tool
-          through MCP, or run it in the terminal with the CLI.
+          Use it however you want — browse feeds on the web, integrate via REST, connect AI tools through MCP, or
+          work from the terminal with the CLI.
         </p>
         <p className="mt-4 w-full text-[16px] leading-[1.9] text-muted-foreground">Same data. Every workflow.</p>
       </div>
@@ -275,7 +277,7 @@ export function DocsSection({ id }: DocsSectionProps) {
           />
           <InterfaceDialog
             title="CLI"
-            description="Install once, then use the public OpenRSSGate API from your terminal. Homebrew needs `brew tap windbug99/homebrew-tap` first because `openrssgate` is published through a custom tap, not homebrew-core."
+            description="Install once, then use the public OpenRSSGate API from your terminal. On Homebrew, `brew tap windbug99/homebrew-tap` is needed only for the first install because `openrssgate` is published through a custom tap. The preferred command name is `org`."
             lines={cliInfo}
             trigger={
               <Button variant="ghost" className="h-12 w-full rounded-none px-5">

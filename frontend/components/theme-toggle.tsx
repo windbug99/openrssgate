@@ -12,7 +12,7 @@ function applyTheme(theme: ThemeMode) {
 
 export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("openrssgate-theme");
@@ -20,7 +20,7 @@ export function ThemeToggle() {
       setTheme(savedTheme);
       applyTheme(savedTheme);
     } else {
-      applyTheme("light");
+      applyTheme("dark");
     }
     setMounted(true);
   }, []);

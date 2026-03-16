@@ -32,6 +32,8 @@ export function SourceCard({
     event.stopPropagation();
   }
 
+  const sourceBadgeClassName = "text-[11px]";
+
   return (
     <article
       className={cn(
@@ -62,15 +64,15 @@ export function SourceCard({
               </div>
 
               <h3 className="truncate text-base font-semibold tracking-tight md:text-lg">{source.title}</h3>
-              {source.language ? <Badge>{LANGUAGE_LABELS[source.language] ?? source.language}</Badge> : null}
-              {source.type ? <Badge variant="outline">{SOURCE_TYPE_LABELS[source.type] ?? source.type}</Badge> : null}
+              {source.language ? <Badge className={sourceBadgeClassName}>{LANGUAGE_LABELS[source.language] ?? source.language}</Badge> : null}
+              {source.type ? <Badge variant="outline" className={sourceBadgeClassName}>{SOURCE_TYPE_LABELS[source.type] ?? source.type}</Badge> : null}
               {source.categories.map((category) => (
-                <Badge key={category} variant="outline">
+                <Badge key={category} variant="outline" className={sourceBadgeClassName}>
                   {SOURCE_CATEGORY_LABELS[category] ?? category}
                 </Badge>
               ))}
               {source.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
+                <Badge key={tag} variant="secondary" className={sourceBadgeClassName}>
                   {SOURCE_TAG_LABELS[tag] ?? tag}
                 </Badge>
               ))}

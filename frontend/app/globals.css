@@ -29,23 +29,23 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --background: #E7E9EB;
+  --foreground: #1B1D1F;
+  --card: #F2F4F5;
+  --card-foreground: #1B1D1F;
+  --popover: #F2F4F5;
+  --popover-foreground: #1B1D1F;
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: #DDE1E4;
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
+  --muted: #DDE1E4;
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --accent: #DDE1E4;
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: #D5D9DD;
+  --input: #D5D9DD;
   --ring: oklch(0.708 0 0);
   --radius: 0.75rem;
 }
@@ -93,9 +93,9 @@
   .home-status-badge {
     display: inline-flex;
     align-items: center;
-    border-radius: calc(var(--radius) - 4px);
+    border-radius: 9999px;
     border: 1px solid rgba(232, 93, 74, 0.4);
-    background: #fff0ed;
+    background: rgba(232, 93, 74, 0.08);
     color: #8f2f24;
     font-size: 13px;
     font-weight: 500;
