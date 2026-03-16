@@ -31,7 +31,7 @@ It is a shared source-and-feed metadata layer that other products, scripts, agen
 
 ### Web
 
-- Public website: `https://openrssgate.vercel.app/`
+- Public website: [`https://openrssgate.vercel.app/`](https://openrssgate.vercel.app/)
 - Browse indexed sources
 - Register new RSS sources
 - Check public stats and recent activity
