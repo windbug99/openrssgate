@@ -5,6 +5,8 @@ import sys
 from typing import Any
 from pathlib import Path
 
+from fastapi import HTTPException
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -51,12 +53,27 @@ def _handle_tools_list(request_id: Any) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": {"tools": _tool_definitions()}}
 
 
+def _tool_error_result(code: str, message: str) -> dict[str, Any]:
+    error = {"code": code, "message": message}
+    return {
+        "content": [{"type": "text", "text": json.dumps({"error": error}, ensure_ascii=False)}],
+        "structuredContent": {"error": error},
+        "isError": True,
+    }
+
+
 def _handle_tools_call(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
     name = params.get("name")
     arguments = params.get("arguments", {})
 
-    with SessionLocal() as db:
-        payload = call_tool(db, str(name), arguments if isinstance(arguments, dict) else {})
+    try:
+        with SessionLocal() as db:
+            payload = call_tool(db, str(name), arguments if isinstance(arguments, dict) else {})
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {"code": "tool_error", "message": str(exc.detail)}
+        return {"jsonrpc": "2.0", "id": request_id, "result": _tool_error_result(str(detail["code"]), str(detail["message"]))}
+    except Exception as exc:
+        return {"jsonrpc": "2.0", "id": request_id, "result": _tool_error_result("internal_error", str(exc))}
 
     result = payload["result"]
     return {

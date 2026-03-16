@@ -109,6 +109,9 @@ Reference file:
 ## Post-deploy checks
 
 - `GET /health` returns `{"status":"ok"}`
+- `POST /mcp` with `initialize` returns `Mcp-Session-Id`
+- `POST /mcp` with `tools/list` returns the MCP tool list
+- `POST /mcp` with `tools/call` returns valid tool results
 - `GET /mcp/tools` returns the tool manifest
 - `POST /mcp/call` returns valid tool results
 - Web homepage can register a source

@@ -285,6 +285,120 @@ def test_mcp_tools_endpoint() -> None:
     payload = response.json()
     assert "tools" in payload
     assert any(tool["name"] == "search_sources" for tool in payload["tools"])
+    assert any(tool["name"] == "get_stats" for tool in payload["tools"])
+    assert any(tool["name"] == "list_feeds" for tool in payload["tools"])
+    assert any(tool["name"] == "validate_source" for tool in payload["tools"])
+    assert any(tool["name"] == "create_source" for tool in payload["tools"])
+
+
+def test_remote_mcp_initialize_list_and_call_flow() -> None:
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://remote.example.com/rss.xml",
+            site_url="https://remote.example.com",
+            title="Remote Source",
+            description="desc",
+            language="en",
+            status="active",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+
+    initialize_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "0.1.0"},
+            },
+        },
+    )
+    assert initialize_response.status_code == 200
+    session_id = initialize_response.headers["Mcp-Session-Id"]
+    assert initialize_response.json()["result"]["serverInfo"]["name"] == "rss-gateway-http"
+
+    initialized_response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+        headers={"Mcp-Session-Id": session_id},
+    )
+    assert initialized_response.status_code == 202
+
+    list_response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        headers={"Mcp-Session-Id": session_id},
+    )
+    assert list_response.status_code == 200
+    assert any(tool["name"] == "search_sources" for tool in list_response.json()["result"]["tools"])
+
+    call_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "search_sources", "arguments": {"language": "en", "limit": 10}},
+        },
+        headers={"Mcp-Session-Id": session_id},
+    )
+    assert call_response.status_code == 200
+    payload = call_response.json()
+    assert payload["result"]["isError"] is False
+    assert payload["result"]["structuredContent"]["total"] == 1
+    assert payload["result"]["structuredContent"]["items"][0]["title"] == "Remote Source"
+
+
+def test_remote_mcp_tool_errors_are_returned_in_result() -> None:
+    initialize_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "0.1.0"},
+            },
+        },
+    )
+    session_id = initialize_response.headers["Mcp-Session-Id"]
+
+    client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+        headers={"Mcp-Session-Id": session_id},
+    )
+
+    call_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "get_source", "arguments": {}},
+        },
+        headers={"Mcp-Session-Id": session_id},
+    )
+    assert call_response.status_code == 200
+    payload = call_response.json()
+    assert payload["result"]["isError"] is True
+    assert payload["result"]["structuredContent"]["error"]["code"] == "missing_source_id"
+
+
+def test_remote_mcp_requires_valid_session() -> None:
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+    )
+    assert response.status_code == 200
+    assert response.json()["error"]["code"] == -32001
 
 
 def test_openapi_contains_tag_metadata() -> None:
@@ -374,6 +488,129 @@ def test_mcp_call_search_sources_endpoint() -> None:
     assert payload["result"]["items"][0]["title"] == "Example Source"
     assert payload["result"]["items"][0]["type"] == "blog"
     assert payload["result"]["items"][0]["categories"] == ["tech", "media"]
+
+
+def test_mcp_call_get_stats_and_feed_tools_endpoint() -> None:
+    now = datetime.now(UTC)
+    with SessionLocal() as db:
+        source = Source(
+            rss_url="https://feed-tools.example.com/rss.xml",
+            site_url="https://feed-tools.example.com",
+            title="Feed Tools Source",
+            description="desc",
+            status="active",
+            registered_by="web",
+        )
+        db.add(source)
+        db.commit()
+        db.refresh(source)
+
+        feed = Feed(
+            source_id=source.id,
+            guid="feed-tools-1",
+            title="Feed tools entry",
+            feed_url="https://feed-tools.example.com/1",
+            published_at=now,
+        )
+        db.add(feed)
+        db.commit()
+        db.refresh(feed)
+        source_id = source.id
+        feed_id = feed.id
+
+    stats_response = client.post("/mcp/call", json={"name": "get_stats", "arguments": {}})
+    assert stats_response.status_code == 200
+    assert stats_response.json()["result"]["active_sources"] == 1
+    assert stats_response.json()["result"]["total_feeds"] == 1
+
+    feed_response = client.post("/mcp/call", json={"name": "get_feed", "arguments": {"feed_id": feed_id}})
+    assert feed_response.status_code == 200
+    payload = feed_response.json()["result"]
+    assert payload["id"] == feed_id
+    assert payload["source"]["id"] == source_id
+    assert payload["source"]["title"] == "Feed Tools Source"
+
+
+def test_remote_mcp_validate_and_create_source_tools(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://mcp-create.example.com/feed.xml",
+                "site_url": "https://mcp-create.example.com",
+                "title": "MCP Create Source",
+                "description": "desc",
+                "favicon_url": "https://mcp-create.example.com/favicon.ico",
+                "feed_format": "rss2",
+                "language": "en",
+                "type": "blog",
+                "categories": "tech,media",
+            },
+            "entries": [
+                {
+                    "guid": "1",
+                    "title": "MCP source article",
+                    "feed_url": "https://mcp-create.example.com/1",
+                    "published_at": datetime.now(UTC),
+                }
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    initialize_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "0.1.0"},
+            },
+        },
+    )
+    session_id = initialize_response.headers["Mcp-Session-Id"]
+    client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+        headers={"Mcp-Session-Id": session_id},
+    )
+
+    validate_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "validate_source", "arguments": {"rss_url": "https://mcp-create.example.com/feed.xml"}},
+        },
+        headers={"Mcp-Session-Id": session_id},
+    )
+    assert validate_response.status_code == 200
+    validate_payload = validate_response.json()["result"]["structuredContent"]
+    assert validate_payload["valid"] is True
+    assert validate_payload["title"] == "MCP Create Source"
+
+    create_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "create_source",
+                "arguments": {"rss_url": "https://mcp-create.example.com/feed.xml", "client_key": "test-client"},
+            },
+        },
+        headers={"Mcp-Session-Id": session_id},
+    )
+    assert create_response.status_code == 200
+    create_payload = create_response.json()["result"]["structuredContent"]
+    assert create_payload["title"] == "MCP Create Source"
+    assert create_payload["registered_by"] == "mcp"
 
 
 def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:

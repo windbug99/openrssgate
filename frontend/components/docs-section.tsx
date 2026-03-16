@@ -43,7 +43,14 @@ const apiCommands = [
 
 const mcpInfo = [
   {
-    heading: "Connect",
+    heading: "Status",
+    lines: [
+      "Remote HTTP MCP: https://openrssgate-production.up.railway.app/mcp",
+      "Local stdio: available for Claude Desktop local setup",
+    ],
+  },
+  {
+    heading: "Debug",
     lines: [
       "SSE: https://openrssgate-production.up.railway.app/mcp/sse",
       "Manifest: https://openrssgate-production.up.railway.app/mcp/tools",
@@ -61,7 +68,9 @@ const mcpInfo = [
   {
     heading: "Tools",
     lines: [
-      "Available: search_sources, get_source, get_recent_feeds, get_source_feeds",
+      "Available: search_sources, get_source, get_source_status, get_stats",
+      "Feeds: get_recent_feeds, list_feeds, get_feed, get_source_feeds, get_source_feed",
+      "Source setup: validate_source, autofill_source, create_source",
     ],
   },
 ];
@@ -239,7 +248,7 @@ export function DocsSection({ id }: DocsSectionProps) {
           />
           <InterfaceDialog
             title="Remote MCP"
-            description="Connect your MCP client to the public OpenRSSGate endpoint, then ask for sources, source details, or recent feeds in natural language."
+            description="Connect MCP clients to the remote HTTP endpoint at `/mcp` for session-based JSON-RPC tool access. Legacy SSE and manifest routes remain available for debugging."
             lines={mcpInfo}
             trigger={
               <Button variant="ghost" className="h-12 w-full rounded-none border-r border-border/80 px-5">
