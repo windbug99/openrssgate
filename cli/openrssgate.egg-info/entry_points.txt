@@ -1,0 +1,3 @@
+[console_scripts]
+openrssgate = openrssgate.main:_run
+org = openrssgate.main:_run

@@ -1,3 +1,27 @@
+Metadata-Version: 2.4
+Name: openrssgate
+Version: 0.1.1
+Summary: Read-only CLI for querying OpenRSSGate sources and feeds.
+Author: OpenRSSGate
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/windbug99/openrssgate
+Project-URL: Repository, https://github.com/windbug99/openrssgate
+Project-URL: Issues, https://github.com/windbug99/openrssgate/issues
+Keywords: rss,cli,feeds,mcp,openrssgate
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content :: News/Diary
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: httpx==0.28.1
+Requires-Dist: typer==0.16.1
+
 # OpenRSSGate CLI
 
 ## Install
@@ -46,7 +70,7 @@ org list
 
 Verified release:
 
-- PyPI: `openrssgate==0.1.2`
+- PyPI: `openrssgate==0.1.1`
 - Homebrew tap: `windbug99/homebrew-tap`
 
 ## Run

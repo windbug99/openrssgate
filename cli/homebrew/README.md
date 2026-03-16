@@ -7,7 +7,12 @@ This directory contains the template used to publish `openrssgate` to a custom H
 ```bash
 brew tap <owner>/tap
 brew install openrssgate
+org --help
+org list
 ```
+
+`brew install openrssgate` installs the package name, while the preferred runtime command is `org`.
+The legacy `openrssgate` command remains available as a backward-compatible alias.
 
 ## Release inputs
 
@@ -49,3 +54,31 @@ brew update-python-resources /opt/homebrew/Library/Taps/<owner>/homebrew-tap/For
 ```
 
 Then sync the updated `resource` blocks back into `Formula/openrssgate.rb.template` before the next release.
+
+## Release verification for `org`
+
+After updating the tap formula to a version that includes the `org` script entrypoint:
+
+```bash
+brew update
+brew upgrade openrssgate
+which org
+org --help
+org list
+```
+
+If you are testing from a clean machine:
+
+```bash
+brew tap <owner>/tap
+brew install openrssgate
+which org
+org --help
+org list
+```
+
+Expected result:
+
+- `which org` resolves to the Homebrew-installed binary
+- `org --help` prints the CLI help output
+- `org list` returns source data from the configured API

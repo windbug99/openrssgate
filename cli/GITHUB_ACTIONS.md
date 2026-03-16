@@ -31,6 +31,12 @@ The workflow uploads two artifacts:
 
 The Homebrew artifact is the rendered `openrssgate.rb` starter formula. You still need to run `brew update-python-resources` against the final formula in the tap repository before publishing it.
 
+For releases that should expose the preferred `org` command, verify that:
+
+- `cli/pyproject.toml` contains `org = "openrssgate.main:_run"` under `[project.scripts]`
+- the Homebrew formula test uses `#{bin}/org --help`
+- install verification is performed with `org --help` and `org list`
+
 ## Homebrew tap automation
 
 The tap publish workflow expects these repository secrets:
@@ -46,3 +52,22 @@ The workflow is manually triggered with:
 - `formula_artifact_run_id`
 
 It downloads the previously generated `openrssgate-homebrew-formula` artifact and commits it into the tap repository.
+
+## Recommended release verification
+
+After both workflows succeed:
+
+```bash
+pipx install openrssgate
+org --help
+org list
+```
+
+```bash
+brew tap <owner>/tap
+brew install openrssgate
+org --help
+org list
+```
+
+`openrssgate` can remain as a compatibility alias, but `org` should be treated as the primary acceptance check.

@@ -9,7 +9,9 @@
 - Homebrew formula 템플릿 및 생성 스크립트
 - Homebrew tap 반영 workflow 초안
 
-현재 `openrssgate 0.1.1` 기준으로 아래 외부 설정과 첫 배포 검증은 완료되었습니다.
+현재 `openrssgate 0.1.2` 기준으로 아래 외부 설정과 첫 배포 검증은 완료되었습니다.
+
+현재 권장 실행 명령은 `org`이며, `openrssgate`는 하위 호환 alias로 유지됩니다.
 
 완료된 항목:
 
@@ -131,8 +133,8 @@ brew install openrssgate
 ### 태그 예시
 
 ```bash
-git tag openrssgate-cli-v0.1.1
-git push origin openrssgate-cli-v0.1.1
+git tag openrssgate-cli-v0.1.2
+git push origin openrssgate-cli-v0.1.2
 ```
 
 ### 실행되는 workflow
@@ -145,7 +147,7 @@ git push origin openrssgate-cli-v0.1.1
 ### Homebrew workflow 실행에 필요한 값
 
 - `version`
-  예: `0.1.1`
+  예: `0.1.2`
 - `formula_artifact_run_id`
   앞 단계 릴리스 workflow에서 생성된 artifact가 포함된 GitHub Actions run id
 
@@ -165,8 +167,8 @@ git push origin openrssgate-cli-v0.1.1
 
 ```bash
 pipx install openrssgate
-openrssgate --help
-openrssgate list
+org --help
+org list
 ```
 
 ### Homebrew 설치 검증
@@ -174,15 +176,21 @@ openrssgate list
 ```bash
 brew tap windbug99/homebrew-tap
 brew install openrssgate
-openrssgate --help
-openrssgate list
+org --help
+org list
 ```
 
 ### 확인 포인트
 
-- `openrssgate` 명령이 정상 실행되는지
+- `org` 명령이 정상 실행되는지
 - `--help`가 출력되는지
 - API base URL 환경변수를 주었을 때 실제 조회가 되는지
+
+참고:
+
+- `brew install openrssgate`는 패키지 설치 명령입니다.
+- 설치 후 실행은 `org`를 기본으로 사용합니다.
+- `openrssgate`가 남아 있더라도 배포 검증은 `org` 기준으로 진행하는 것이 맞습니다.
 
 ---
 

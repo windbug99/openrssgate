@@ -3,7 +3,8 @@
 ## Package target
 
 - PyPI package name: `openrssgate`
-- Console command: `openrssgate`
+- Preferred console command: `org`
+- Backward-compatible alias: `openrssgate`
 
 ## Pre-release checklist
 
@@ -30,8 +31,8 @@ External account and repository setup is documented in [EXTERNAL_SETUP.md](/User
 
 ```bash
 pipx install openrssgate
-openrssgate --help
-openrssgate list
+org --help
+org list
 ```
 
 ## Homebrew release
@@ -54,11 +55,11 @@ If you want to automate the tap update, configure the Homebrew workflow describe
 ```bash
 brew tap windbug99/homebrew-tap
 brew install openrssgate
-openrssgate --help
-openrssgate list
+org --help
+org list
 ```
 
 ## Current verified release
 
-- PyPI: `openrssgate==0.1.1`
+- PyPI: `openrssgate==0.1.2`
 - Homebrew tap: `windbug99/homebrew-tap`

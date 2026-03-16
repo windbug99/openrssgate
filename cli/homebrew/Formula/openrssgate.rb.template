@@ -84,6 +84,6 @@ class Openrssgate < Formula
   end
 
   test do
-    assert_match "Read-only CLI", shell_output("#{bin}/openrssgate --help")
+    assert_match "Read-only CLI", shell_output("#{bin}/org --help")
   end
 end
