@@ -180,8 +180,8 @@ export function SourcesSection({
   return (
     <section id={id} className="-mx-6 scroll-mt-24 space-y-6 md:-mx-10">
       <div className="border-t border-border/70 px-6 pt-8 md:px-10">
-        <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          <Database className="h-4 w-4" />
+        <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.24em] text-[#E85D4A]">
+          <Database className="h-4 w-4 text-[#E85D4A]" />
           <span>Sources</span>
         </div>
         <div className="space-y-2">

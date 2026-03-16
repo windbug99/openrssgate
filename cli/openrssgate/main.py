@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import typer
 
 from openrssgate.client import ApiError
@@ -22,13 +24,14 @@ def main() -> None:
     pass
 
 
-def _run() -> None:
+def _run() -> int:
     try:
         app()
     except ApiError as exc:
         typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    _run()
+    sys.exit(_run())

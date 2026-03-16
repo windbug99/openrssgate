@@ -84,11 +84,27 @@ const cliInfo = [
     ],
   },
   {
+    heading: "Find IDs",
+    lines: [
+      "Find source ID: openrssgate list --keyword platformer",
+      "Use source feeds: openrssgate feeds <source_id>",
+      "Use single feed: openrssgate feed <feed_id>",
+    ],
+  },
+  {
     heading: "Run",
     lines: [
       "List sources: openrssgate list",
       "Recent feeds: openrssgate feeds --q openai --since 7d",
       "Quick stats: openrssgate stats",
+    ],
+  },
+  {
+    heading: "Common mistakes",
+    lines: [
+      "Source vs feed: `feeds <source_id>` lists a source's feeds",
+      "Single feed: `feed <feed_id>` shows one feed item only",
+      "Validation: use a direct RSS URL, not a website homepage",
     ],
   },
   {
@@ -219,8 +235,8 @@ export function DocsSection({ id }: DocsSectionProps) {
   return (
     <section id={id} className="-mx-6 scroll-mt-24 space-y-6 md:-mx-10">
       <div className="border-t border-border/70 px-6 pt-8 md:px-10">
-        <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          <BookMarked className="h-4 w-4" />
+        <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.24em] text-[#E85D4A]">
+          <BookMarked className="h-4 w-4 text-[#E85D4A]" />
           <span>Docs</span>
         </div>
         <h2 className="text-[1.5rem] font-bold tracking-[-0.04em] text-foreground">One index. Your interface.</h2>

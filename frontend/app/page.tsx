@@ -47,7 +47,7 @@ export default async function HomePage() {
 
           <div className="mx-auto mt-8 flex max-w-[900px] flex-col items-center space-y-5">
             <h2 className="max-w-[780px] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground">
-              <span className="text-[#E86A17]">RSS</span> isn't dead. It's just scattered.
+              <span className="text-[#E85D4A]">RSS</span> isn't dead. It's just scattered.
             </h2>
             <p className="max-w-[860px] text-[16px] leading-[1.95] text-muted-foreground">
               Feeds are fragmented. Platforms decide what gets read.

@@ -9,7 +9,9 @@ from openrssgate.config import get_api_base_url
 
 
 class ApiError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class OpenRSSGateClient:
@@ -23,7 +25,7 @@ class OpenRSSGateClient:
         except httpx.HTTPStatusError as exc:
             payload = exc.response.json() if exc.response.headers.get("content-type", "").startswith("application/json") else {}
             message = payload.get("error", {}).get("message", exc.response.text)
-            raise ApiError(message) from exc
+            raise ApiError(message, status_code=exc.response.status_code) from exc
         except httpx.ConnectError as exc:
             raise ApiError(
                 "Failed to connect to OpenRSSGate API.\n"

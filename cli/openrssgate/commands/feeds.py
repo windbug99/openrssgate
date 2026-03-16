@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import typer
 
-from openrssgate.client import OpenRSSGateClient, format_json
+from openrssgate.client import ApiError, OpenRSSGateClient, format_json
+from openrssgate.errors import exit_for_feed_error, exit_for_feeds_error
+from openrssgate.output import print_empty, print_hint, print_identifier, print_label_value, print_title
 
 
 def register(app: typer.Typer) -> None:
@@ -20,17 +22,20 @@ def register(app: typer.Typer) -> None:
         json_output: bool = typer.Option(False, "--json", help="Print the raw API response as JSON."),
     ) -> None:
         client = OpenRSSGateClient()
-        payload = client.list_feeds(
-            source_id=source_id,
-            q=query,
-            language=lang,
-            type=source_type,
-            category=category,
-            tag=tag,
-            since=since,
-            page=page,
-            limit=limit,
-        )
+        try:
+            payload = client.list_feeds(
+                source_id=source_id,
+                q=query,
+                language=lang,
+                type=source_type,
+                category=category,
+                tag=tag,
+                since=since,
+                page=page,
+                limit=limit,
+            )
+        except ApiError as exc:
+            raise exit_for_feeds_error(exc, source_id) from None
 
         if json_output:
             typer.echo(format_json(payload))
@@ -38,15 +43,17 @@ def register(app: typer.Typer) -> None:
 
         items = payload.get("items", [])
         if not items:
-            typer.echo("No feeds found.")
+            print_empty("No feeds found.")
+            if source_id:
+                print_hint("Check the source ID with `openrssgate list`, or remove filters like `--q` and `--since`.")
             return
 
         for item in items:
-            typer.echo(item["title"])
-            typer.echo(f"  id: {item['id']}")
-            typer.echo(f"  source: {item['source_id']}")
-            typer.echo(f"  published: {item.get('published_at') or '-'}")
-            typer.echo(f"  url: {item['feed_url']}")
+            print_title(item["title"])
+            print_identifier("id", item["id"])
+            print_identifier("source", item["source_id"])
+            print_label_value("published", item.get("published_at") or "-")
+            print_label_value("url", item["feed_url"])
 
     @app.command("feed", help="Show detailed information for a single feed item.")
     def feed(
@@ -54,17 +61,20 @@ def register(app: typer.Typer) -> None:
         json_output: bool = typer.Option(False, "--json", help="Print the raw API response as JSON."),
     ) -> None:
         client = OpenRSSGateClient()
-        payload = client.get_feed(feed_id)
+        try:
+            payload = client.get_feed(feed_id)
+        except ApiError as exc:
+            raise exit_for_feed_error(exc) from None
 
         if json_output:
             typer.echo(format_json(payload))
             return
 
         source = payload.get("source", {})
-        typer.echo(payload["title"])
-        typer.echo(f"  id: {payload['id']}")
-        typer.echo(f"  source: {source.get('title') or payload.get('source_id')}")
-        typer.echo(f"  source id: {payload['source_id']}")
-        typer.echo(f"  published: {payload.get('published_at') or '-'}")
-        typer.echo(f"  url: {payload['feed_url']}")
-        typer.echo(f"  site: {source.get('site_url') or '-'}")
+        print_title(payload["title"])
+        print_identifier("id", payload["id"])
+        print_label_value("source", source.get("title") or payload.get("source_id"))
+        print_identifier("source id", payload["source_id"])
+        print_label_value("published", payload.get("published_at") or "-")
+        print_label_value("url", payload["feed_url"])
+        print_label_value("site", source.get("site_url") or "-")

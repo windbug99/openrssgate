@@ -61,6 +61,20 @@ org validate https://example.com/rss.xml
 org feed <feed_id>
 ```
 
+Typical lookup flow:
+
+```bash
+org list --keyword platformer
+org feeds <source_id>
+org feed <feed_id>
+```
+
+Common mistakes:
+
+- `org feeds <source_id>` lists feeds that belong to one source.
+- `org feed <feed_id>` shows one specific feed item.
+- `org validate <rss_url>` expects a direct RSS or Atom feed URL, not a website homepage.
+
 To target a local or self-hosted backend:
 
 ```bash

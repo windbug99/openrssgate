@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import typer
 
-from openrssgate.client import OpenRSSGateClient, format_json
+from openrssgate.client import ApiError, OpenRSSGateClient, format_json
+from openrssgate.errors import exit_for_list_error
+from openrssgate.output import print_empty, print_identifier, print_label_value, print_title
 
 
 def register(app: typer.Typer) -> None:
@@ -29,7 +31,10 @@ def register(app: typer.Typer) -> None:
             "limit": limit,
         }
 
-        payload = client.list_sources(**request_params)
+        try:
+            payload = client.list_sources(**request_params)
+        except ApiError as exc:
+            raise exit_for_list_error(exc) from None
 
         if all_pages:
             items = list(payload.get("items", []))
@@ -38,7 +43,10 @@ def register(app: typer.Typer) -> None:
 
             while len(items) < total:
                 current_page += 1
-                next_payload = client.list_sources(**{**request_params, "page": current_page})
+                try:
+                    next_payload = client.list_sources(**{**request_params, "page": current_page})
+                except ApiError as exc:
+                    raise exit_for_list_error(exc) from None
                 next_items = next_payload.get("items", [])
                 if not next_items:
                     break
@@ -58,17 +66,15 @@ def register(app: typer.Typer) -> None:
 
         items = payload.get("items", [])
         if not items:
-            typer.echo("No sources found.")
+            print_empty("No sources found.")
             return
 
         for item in items:
             tags = ", ".join(item.get("tags", [])) or "-"
             categories = ", ".join(item.get("categories", [])) or "-"
-            typer.echo(
-                f"{item['title']} [{item.get('language') or '-'} / {item.get('type') or '-'} / {categories}]"
-            )
-            typer.echo(f"  id: {item['id']}")
-            typer.echo(f"  site: {item['site_url']}")
-            typer.echo(f"  rss: {item['rss_url']}")
-            typer.echo(f"  tags: {tags}")
-            typer.echo(f"  last fetched: {item.get('last_fetched_at') or '-'}")
+            print_title(f"{item['title']} [{item.get('language') or '-'} / {item.get('type') or '-'} / {categories}]")
+            print_identifier("id", item["id"])
+            print_label_value("site", item["site_url"])
+            print_label_value("rss", item["rss_url"])
+            print_label_value("tags", tags)
+            print_label_value("last fetched", item.get("last_fetched_at") or "-")
