@@ -12,6 +12,9 @@ class FeedResponse(BaseModel):
     title: str
     feed_url: str
     published_at: datetime | None
+    author: str | None
+    summary: str | None
+    content: str | None
 
 
 class FeedListResponse(BaseModel):
@@ -41,4 +44,7 @@ class FeedDetailResponse(BaseModel):
     title: str
     feed_url: str
     published_at: datetime | None
+    author: str | None
+    summary: str | None
+    content: str | None
     source: FeedSourceSummary

@@ -511,6 +511,9 @@ def test_mcp_call_get_stats_and_feed_tools_endpoint() -> None:
             title="Feed tools entry",
             feed_url="https://feed-tools.example.com/1",
             published_at=now,
+            author="Tool Author",
+            summary="Tool summary",
+            content="<p>Tool content</p>",
         )
         db.add(feed)
         db.commit()
@@ -527,6 +530,9 @@ def test_mcp_call_get_stats_and_feed_tools_endpoint() -> None:
     assert feed_response.status_code == 200
     payload = feed_response.json()["result"]
     assert payload["id"] == feed_id
+    assert payload["author"] == "Tool Author"
+    assert payload["summary"] == "Tool summary"
+    assert payload["content"] == "<p>Tool content</p>"
     assert payload["source"]["id"] == source_id
     assert payload["source"]["title"] == "Feed Tools Source"
 
@@ -1120,6 +1126,9 @@ def test_feeds_endpoint_supports_q_and_source_metadata_filters() -> None:
                     title="OpenAI launches new model",
                     feed_url="https://ai.example.com/1",
                     published_at=now,
+                    author="OpenAI",
+                    summary="A short launch summary.",
+                    content="<p>Launch content</p>",
                 ),
                 Feed(
                     source_id=other_source.id,
@@ -1137,6 +1146,9 @@ def test_feeds_endpoint_supports_q_and_source_metadata_filters() -> None:
     payload = response.json()
     assert payload["total"] == 1
     assert payload["items"][0]["title"] == "OpenAI launches new model"
+    assert payload["items"][0]["author"] == "OpenAI"
+    assert payload["items"][0]["summary"] == "A short launch summary."
+    assert payload["items"][0]["content"] == "<p>Launch content</p>"
 
 
 def test_top_level_feed_detail_endpoint_returns_source_metadata() -> None:
@@ -1162,6 +1174,9 @@ def test_top_level_feed_detail_endpoint_returns_source_metadata() -> None:
             title="Detailed feed",
             feed_url="https://detail.example.com/1",
             published_at=now,
+            author="Detail Author",
+            summary="Detailed summary",
+            content="<p>Detailed content</p>",
         )
         db.add(feed)
         db.commit()
@@ -1172,12 +1187,19 @@ def test_top_level_feed_detail_endpoint_returns_source_metadata() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"] == feed_id
+    assert payload["author"] == "Detail Author"
+    assert payload["summary"] == "Detailed summary"
+    assert payload["content"] == "<p>Detailed content</p>"
     assert payload["source"]["id"] == source_id
     assert payload["source"]["title"] == "Detail Source"
 
     nested_response = client.get(f"/v1/sources/{source_id}/feeds/{feed_id}")
     assert nested_response.status_code == 200
-    assert nested_response.json()["source"]["id"] == source_id
+    nested_payload = nested_response.json()
+    assert nested_payload["author"] == "Detail Author"
+    assert nested_payload["summary"] == "Detailed summary"
+    assert nested_payload["content"] == "<p>Detailed content</p>"
+    assert nested_payload["source"]["id"] == source_id
 
 
 def test_public_read_rate_limit_returns_429() -> None:

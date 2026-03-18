@@ -76,5 +76,8 @@ def register(app: typer.Typer) -> None:
         print_label_value("source", source.get("title") or payload.get("source_id"))
         print_identifier("source id", payload["source_id"])
         print_label_value("published", payload.get("published_at") or "-")
+        print_label_value("author", payload.get("author") or "-")
         print_label_value("url", payload["feed_url"])
         print_label_value("site", source.get("site_url") or "-")
+        print_label_value("summary", payload.get("summary") or "-")
+        print_label_value("content", payload.get("content") or "-")

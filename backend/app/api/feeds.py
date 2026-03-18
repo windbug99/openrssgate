@@ -46,6 +46,9 @@ def _to_feed_detail_response(feed: Feed, source: Source) -> FeedDetailResponse:
         title=feed.title,
         feed_url=feed.feed_url,
         published_at=feed.published_at,
+        author=feed.author,
+        summary=feed.summary,
+        content=feed.content,
         source=FeedSourceSummary(
             id=source.id,
             title=source.title,

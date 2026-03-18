@@ -25,6 +25,9 @@ export type Feed = {
   title: string;
   feed_url: string;
   published_at: string | null;
+  author: string | null;
+  summary: string | null;
+  content: string | null;
 };
 
 export type FeedDetail = Feed & {

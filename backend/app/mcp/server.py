@@ -148,6 +148,9 @@ def _serialize_feed(feed: Feed) -> dict[str, Any]:
         "title": feed.title,
         "feed_url": feed.feed_url,
         "published_at": feed.published_at.isoformat() if feed.published_at else None,
+        "author": feed.author,
+        "summary": feed.summary,
+        "content": feed.content,
     }
 
 
