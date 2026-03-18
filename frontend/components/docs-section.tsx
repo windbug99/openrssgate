@@ -81,6 +81,8 @@ const cliInfo = [
     lines: [
       "Homebrew first install: brew tap windbug99/homebrew-tap && brew install openrssgate",
       "Homebrew after tap: brew install openrssgate",
+      "Homebrew upgrade: brew update && brew upgrade openrssgate",
+      "Upgrade note: use `brew upgrade openrssgate` after the formula is updated in the tap",
       "pipx: pipx install openrssgate",
     ],
   },
@@ -277,7 +279,7 @@ export function DocsSection({ id }: DocsSectionProps) {
           />
           <InterfaceDialog
             title="CLI"
-            description="Install once, then use the public OpenRSSGate API from your terminal. On Homebrew, `brew tap windbug99/homebrew-tap` is needed only for the first install because `openrssgate` is published through a custom tap. The preferred command name is `org`."
+            description="Install once, then use the public OpenRSSGate API from your terminal. On Homebrew, `brew tap windbug99/homebrew-tap` is needed only for the first install because `openrssgate` is published through a custom tap, and `brew upgrade openrssgate` is the update path after the tap formula changes. The preferred command name is `org`."
             lines={cliInfo}
             trigger={
               <Button variant="ghost" className="h-12 w-full rounded-none px-5">
