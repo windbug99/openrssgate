@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     max_redirects: int = 5
     user_agent: str = "rss-gateway-bot/0.1 (+https://rssgateway.io)"
     collector_poll_interval_seconds: int = 300
-    feed_retention_days: int = 30
+    feed_retention_days: int = 14
     feed_cleanup_interval_hours: int = 24
     source_registration_window_seconds: int = 3600
     source_registration_max_attempts: int = 10

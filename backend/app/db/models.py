@@ -59,6 +59,9 @@ class Feed(Base):
     guid: Mapped[str] = mapped_column(String(512), nullable=False)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     feed_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    author: Mapped[str | None] = mapped_column(String(255))
+    summary: Mapped[str | None] = mapped_column(Text())
+    content: Mapped[str | None] = mapped_column(Text())
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     source: Mapped[Source] = relationship(back_populates="feeds")

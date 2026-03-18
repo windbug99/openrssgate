@@ -106,6 +106,24 @@ def _build_entry_identity(entry: feedparser.FeedParserDict) -> str | None:
     return None
 
 
+def _extract_entry_author(entry: feedparser.FeedParserDict) -> str | None:
+    author = entry.get("author") or entry.get("creator")
+    if author:
+        value = str(author).strip()
+        if value:
+            return value
+
+    authors = entry.get("authors")
+    if isinstance(authors, list):
+        for item in authors:
+            if not isinstance(item, dict):
+                continue
+            candidate = str(item.get("name") or item.get("email") or "").strip()
+            if candidate:
+                return candidate
+    return None
+
+
 def _parse_feed_document(document: str) -> feedparser.FeedParserDict:
     parsed_feed = feedparser.parse(document)
     if parsed_feed.bozo and not parsed_feed.entries:
@@ -206,6 +224,7 @@ async def fetch_feed_bundle(rss_url: str) -> dict[str, object]:
             continue
 
         published_at = _normalize_datetime(entry.get("published_parsed") or entry.get("updated_parsed"))
+        author = _extract_entry_author(entry)
         summary = str(entry.get("summary") or entry.get("subtitle") or "").strip() or None
         content_text = None
         content = entry.get("content")
@@ -221,9 +240,10 @@ async def fetch_feed_bundle(rss_url: str) -> dict[str, object]:
                 "guid": identity,
                 "title": str(title),
                 "feed_url": str(link),
+                "author": author,
                 "published_at": published_at,
                 "summary": summary,
-                "content_text": content_text,
+                "content": content_text,
             }
         )
 

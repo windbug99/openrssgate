@@ -50,7 +50,7 @@ def test_purge_expired_feeds_removes_only_entries_older_than_retention(monkeypat
     monkeypatch.setattr(
         scheduler_module,
         "get_settings",
-        lambda: type("Settings", (), {"feed_retention_days": 30})(),
+        lambda: type("Settings", (), {"feed_retention_days": 14})(),
     )
     monkeypatch.setattr(scheduler_module, "datetime", type("FrozenDateTime", (), {"now": staticmethod(lambda _tz=None: fixed_now)}))
 
@@ -81,7 +81,7 @@ def test_purge_expired_feeds_removes_only_entries_older_than_retention(monkeypat
                     guid="expired",
                     title="Expired feed",
                     feed_url="https://example.com/expired",
-                    published_at=fixed_now - timedelta(days=31),
+                    published_at=fixed_now - timedelta(days=15),
                 ),
                 Feed(
                     source_id=source.id,

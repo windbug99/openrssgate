@@ -74,6 +74,9 @@ def ingest_source_bundle(
             guid=guid,
             title=str(entry["title"]),
             feed_url=str(entry["feed_url"]),
+            author=str(entry["author"]).strip() if entry.get("author") else None,
+            summary=str(entry["summary"]).strip() if entry.get("summary") else None,
+            content=str(entry["content"]).strip() if entry.get("content") else None,
             published_at=published_at,
         )
         db.add(feed)
