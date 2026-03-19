@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Github } from "lucide-react";
 
+import { LogoMark } from "@/components/logo-mark";
 import { logoutAdmin } from "@/lib/admin-api";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,9 @@ export function AdminShell({
       <header className="w-full border-b border-border/80">
         <div className="mx-auto flex w-full max-w-[1040px] min-h-[56px] flex-col gap-3 px-6 py-3 md:flex-row md:items-center md:justify-between md:px-10 md:py-4">
           <div className="flex items-center gap-6">
-            <Link href="/" className="text-[1.25rem] font-semibold tracking-[-0.04em] text-foreground">
-              OpenRSSGate
+            <Link href="/" className="inline-flex items-center gap-2 text-[1.25rem] font-semibold tracking-[-0.04em] text-foreground">
+              <LogoMark className="h-6 w-6 text-foreground" />
+              <span>OpenRSSGate</span>
             </Link>
             {showAdminNav ? (
               <nav className="flex items-center gap-2">

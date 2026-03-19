@@ -58,7 +58,9 @@ export function AdminActivityFeed() {
                   </p>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{entry.site_url ?? entry.rss_url}</p>
-                {entry.site_url ? <p className="mt-3 break-all text-sm text-muted-foreground">{entry.rss_url}</p> : null}
+                {entry.site_url && entry.site_url !== entry.rss_url ? (
+                  <p className="mt-3 break-all text-sm text-muted-foreground">{entry.rss_url}</p>
+                ) : null}
               </div>
               <div className="flex shrink-0 flex-col gap-3 border-border/80 md:min-w-[220px] md:border-l md:pl-5">
                 <div className={`inline-flex items-center justify-center rounded-none border bg-muted/10 px-3 py-2 text-center text-sm font-medium ${getResultClass(entry)}`}>

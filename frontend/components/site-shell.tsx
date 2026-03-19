@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Github } from "lucide-react";
 
+import { LogoMark } from "@/components/logo-mark";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -10,8 +11,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
     <div className="w-full">
       <header className="w-full border-b border-border/80">
         <div className="mx-auto flex w-full max-w-[1040px] min-h-[56px] flex-col gap-3 px-6 py-3 md:flex-row md:items-center md:justify-between md:px-10 md:py-4">
-          <Link href="/" className="text-[1.25rem] font-semibold tracking-[-0.04em] text-foreground">
-            OpenRSSGate
+          <Link href="/" className="inline-flex items-center gap-2 text-[1.25rem] font-semibold tracking-[-0.04em] text-foreground">
+            <LogoMark className="h-6 w-6 text-foreground" />
+            <span>OpenRSSGate</span>
           </Link>
           <nav className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm" className="h-9 px-3 text-[15px] font-normal text-muted-foreground">
