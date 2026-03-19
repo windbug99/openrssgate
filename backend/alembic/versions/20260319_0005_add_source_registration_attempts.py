@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision = "20260319_0005"
@@ -18,22 +19,35 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "source_registration_attempts",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("source_id", sa.String(length=36), nullable=True),
-        sa.Column("rss_url", sa.String(length=2048), nullable=False),
-        sa.Column("site_url", sa.String(length=2048), nullable=True),
-        sa.Column("title", sa.String(length=255), nullable=True),
-        sa.Column("result", sa.String(length=32), nullable=False),
-        sa.Column("result_reason", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
-        sa.ForeignKeyConstraint(["source_id"], ["sources.id"]),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index("ix_source_registration_attempts_created_at", "source_registration_attempts", ["created_at"], unique=False)
+    bind = op.get_bind()
+    inspector = inspect(bind)
+
+    if not inspector.has_table("source_registration_attempts"):
+        op.create_table(
+            "source_registration_attempts",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("source_id", sa.String(length=36), nullable=True),
+            sa.Column("rss_url", sa.String(length=2048), nullable=False),
+            sa.Column("site_url", sa.String(length=2048), nullable=True),
+            sa.Column("title", sa.String(length=255), nullable=True),
+            sa.Column("result", sa.String(length=32), nullable=False),
+            sa.Column("result_reason", sa.String(length=255), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+            sa.ForeignKeyConstraint(["source_id"], ["sources.id"]),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        inspector = inspect(bind)
+
+    existing_indexes = {index["name"] for index in inspector.get_indexes("source_registration_attempts")}
+    if "ix_source_registration_attempts_created_at" not in existing_indexes:
+        op.create_index("ix_source_registration_attempts_created_at", "source_registration_attempts", ["created_at"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_source_registration_attempts_created_at", table_name="source_registration_attempts")
-    op.drop_table("source_registration_attempts")
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if inspector.has_table("source_registration_attempts"):
+        existing_indexes = {index["name"] for index in inspector.get_indexes("source_registration_attempts")}
+        if "ix_source_registration_attempts_created_at" in existing_indexes:
+            op.drop_index("ix_source_registration_attempts_created_at", table_name="source_registration_attempts")
+        op.drop_table("source_registration_attempts")
