@@ -52,7 +52,7 @@ export function AdminSourceDetail({ sourceId }: { sourceId: string }) {
     startTransition(async () => {
       try {
         await deleteAdminSource(source.id, reason.trim() || undefined);
-        router.push("/admin/queues");
+        router.push("/admin/sources");
       } catch (submitError) {
         setError(submitError instanceof Error ? submitError.message : "Failed to delete the source.");
       }
@@ -63,8 +63,8 @@ export function AdminSourceDetail({ sourceId }: { sourceId: string }) {
     <AdminShell>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
-          <Link href="/admin/queues" className="text-sm text-foreground underline underline-offset-4">
-            Back to queues
+          <Link href="/admin/sources" className="text-sm text-foreground underline underline-offset-4">
+            Back to sources
           </Link>
           <div className="space-y-5 border-y border-border/80 py-5">
             {source ? (

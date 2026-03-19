@@ -111,8 +111,8 @@ export function AdminTotpSetup() {
                     </div>
                   ))}
                 </div>
-                <Button type="button" className="bg-foreground text-background hover:opacity-90" onClick={() => router.push("/admin/queues")}>
-                  Continue to queues
+                <Button type="button" className="bg-foreground text-background hover:opacity-90" onClick={() => router.push("/admin/sources")}>
+                  Continue to sources
                 </Button>
               </div>
             ) : null}

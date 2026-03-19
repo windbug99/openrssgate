@@ -61,6 +61,17 @@ export type AdminAuditLog = {
   created_at: string;
 };
 
+export type AdminSourceRegistrationAttempt = {
+  id: string;
+  source_id: string | null;
+  rss_url: string;
+  site_url: string | null;
+  title: string | null;
+  result: string;
+  result_reason: string | null;
+  created_at: string;
+};
+
 export type AdminRecoveryCodesResponse = {
   recovery_codes: string[];
 };
@@ -150,6 +161,11 @@ export function getAdminSource(sourceId: string) {
 export function listAdminAuditLogs(limit = 20) {
   const query = new URLSearchParams({ limit: String(limit) }).toString();
   return adminRequest<{ items: AdminAuditLog[] }>(`/audit-logs?${query}`);
+}
+
+export function listAdminRegistrationAttempts(limit = 20) {
+  const query = new URLSearchParams({ limit: String(limit) }).toString();
+  return adminRequest<{ items: AdminSourceRegistrationAttempt[] }>(`/registration-attempts?${query}`);
 }
 
 export function listAdminSourceAuditLogs(sourceId: string) {

@@ -29,7 +29,7 @@ export function AdminLoginForm() {
           ...(otpCode.trim() ? { otp_code: otpCode.trim() } : {}),
           ...(recoveryCode.trim() ? { recovery_code: recoveryCode.trim() } : {}),
         });
-        router.push(session.requires_totp_setup ? "/admin/setup-otp" : "/admin/queues");
+        router.push(session.requires_totp_setup ? "/admin/setup-otp" : "/admin/sources");
       } catch (submitError) {
         setError(submitError instanceof Error ? submitError.message : "Sign in failed.");
       }

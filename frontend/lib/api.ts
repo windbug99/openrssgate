@@ -62,6 +62,10 @@ export type SourceValidation = {
   categories: SourceCategory[];
   tags: SourceTag[];
   feed_format: string | null;
+  status: string;
+  status_reason: string | null;
+  review_source: string;
+  message: string;
 };
 
 export type SourceAutofill = {

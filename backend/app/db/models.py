@@ -44,6 +44,7 @@ class Source(Base):
 
     feeds: Mapped[list[Feed]] = relationship(back_populates="source", cascade="all, delete-orphan")
     moderation_events: Mapped[list[AdminAuditLog]] = relationship(back_populates="source")
+    registration_attempts: Mapped[list[SourceRegistrationAttempt]] = relationship(back_populates="source")
 
 
 class Feed(Base):
@@ -112,3 +113,19 @@ class AdminAuditLog(Base):
 
     admin_user: Mapped[AdminUser | None] = relationship(back_populates="audit_logs")
     source: Mapped[Source | None] = relationship(back_populates="moderation_events")
+
+
+class SourceRegistrationAttempt(Base):
+    __tablename__ = "source_registration_attempts"
+    __table_args__ = (Index("ix_source_registration_attempts_created_at", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    source_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("sources.id"))
+    rss_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    site_url: Mapped[str | None] = mapped_column(String(2048))
+    title: Mapped[str | None] = mapped_column(String(255))
+    result: Mapped[str] = mapped_column(String(32), nullable=False)
+    result_reason: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    source: Mapped[Source | None] = relationship(back_populates="registration_attempts")

@@ -559,7 +559,13 @@ def test_remote_mcp_validate_and_create_source_tools(monkeypatch) -> None:
                     "title": "MCP source article",
                     "feed_url": "https://mcp-create.example.com/1",
                     "published_at": datetime.now(UTC),
-                }
+                },
+                {
+                    "guid": "2",
+                    "title": "MCP source article 2",
+                    "feed_url": "https://mcp-create.example.com/2",
+                    "published_at": datetime.now(UTC),
+                },
             ],
         }
 
@@ -665,13 +671,11 @@ def test_validate_source_endpoint_returns_metadata(monkeypatch) -> None:
     assert payload["status"] == "active"
     assert payload["status_reason"] == "auto_approved"
     assert payload["review_source"] == "rule"
-    assert payload["message"] == "등록 가능한 RSS로 확인되었습니다."
+    assert payload["message"] == "This RSS feed passed validation."
 
 
-def test_validate_source_endpoint_uses_ai_review_for_stale_feed(monkeypatch) -> None:
+def test_validate_source_endpoint_returns_invalid_for_blocked_reason(monkeypatch) -> None:
     from app.api import sources as sources_module
-    from app.services.ai_review import SourceReviewResult
-    from app.services.review import ReviewDecision
 
     stale_time = datetime.now(UTC) - timedelta(days=500)
 
@@ -691,41 +695,66 @@ def test_validate_source_endpoint_uses_ai_review_for_stale_feed(monkeypatch) -> 
             ],
         }
 
-    async def fake_review_source_bundle_with_ai(**_: object) -> SourceReviewResult:
-        return SourceReviewResult(
-            initial_decision=ReviewDecision(status="hidden", reason="stale_feed"),
-            final_decision=ReviewDecision(status="active", reason="ai_override"),
-            review_source="ai",
-            ai_review_reason="Legitimate low-frequency publication with coherent entries.",
-            ai_review_confidence="high",
-        )
-
     monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
-    monkeypatch.setattr(sources_module, "review_source_bundle_with_ai", fake_review_source_bundle_with_ai)
 
     response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/stale.xml", "tags": []})
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "active"
-    assert payload["status_reason"] == "ai_override"
-    assert payload["review_source"] == "ai"
-    assert payload["ai_review_confidence"] == "high"
-    assert payload["ai_review_reason"] == "Legitimate low-frequency publication with coherent entries."
-    assert payload["message"] == "초기 자동 검토에서는 보류 대상이었지만, AI 재검토 결과 등록 가능한 정상 소스로 판단되었습니다."
+    assert payload["valid"] is False
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "stale_feed"
+    assert payload["review_source"] == "rule"
+    assert payload["message"] == "This RSS feed has not been updated in over 365 days."
 
 
-def test_validate_source_endpoint_reports_rule_fallback_when_ai_review_fails(monkeypatch) -> None:
+def test_validate_source_endpoint_allows_missing_published_dates(monkeypatch) -> None:
     from app.api import sources as sources_module
-    from app.services.ai_review import SourceReviewResult
-    from app.services.review import ReviewDecision
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/no-dates.xml",
+                "site_url": "https://example.com",
+                "title": "No Dates Source",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Entry 1", "feed_url": "https://example.com/1", "published_at": None},
+                {"guid": "2", "title": "Entry 2", "feed_url": "https://example.com/2", "published_at": None},
+                {"guid": "3", "title": "Entry 3", "feed_url": "https://example.com/3", "published_at": None},
+                {"guid": "4", "title": "Entry 4", "feed_url": "https://example.com/4", "published_at": datetime.now(UTC)},
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/no-dates.xml", "tags": []})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["valid"] is True
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "missing_published_dates"
+    assert payload["review_source"] == "rule"
+    assert payload["message"] == "This RSS feed is missing published dates on many entries."
+
+
+def test_create_source_rejects_too_few_entries_before_insert(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
 
     async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
         return {
             "metadata": {
                 "rss_url": "https://example.com/few.xml",
-                "site_url": "https://example.com",
-                "title": "Sparse Source",
+                "site_url": "https://few.example.com",
+                "title": "Few Entries Source",
                 "description": "desc",
                 "favicon_url": None,
                 "feed_format": "rss2",
@@ -735,24 +764,59 @@ def test_validate_source_endpoint_reports_rule_fallback_when_ai_review_fails(mon
             ],
         }
 
-    async def fake_review_source_bundle_with_ai(**_: object) -> SourceReviewResult:
-        return SourceReviewResult(
-            initial_decision=ReviewDecision(status="hidden", reason="too_few_entries"),
-            final_decision=ReviewDecision(status="hidden", reason="too_few_entries"),
-            review_source="rule_fallback",
-        )
-
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
     monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
-    monkeypatch.setattr(sources_module, "review_source_bundle_with_ai", fake_review_source_bundle_with_ai)
 
-    response = client.post("/v1/sources/validate", json={"rss_url": "https://example.com/few.xml", "tags": []})
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/few.xml", "tags": []})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     payload = response.json()
-    assert payload["status"] == "hidden"
-    assert payload["status_reason"] == "too_few_entries"
-    assert payload["review_source"] == "rule_fallback"
-    assert payload["message"] == "자동 검토 결과 엔트리가 너무 적어 공개 보류 대상으로 판단되었습니다. AI 재검토는 완료되지 않아 1차 검증 결과를 표시합니다."
+    assert payload["error"]["code"] == "source_validation_failed"
+    assert payload["error"]["message"] == "This RSS feed has fewer than 2 entries."
+
+    with SessionLocal() as db:
+        source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/few.xml"))
+
+    assert source is None
+
+
+def test_create_source_rejects_spam_like_title_before_insert(monkeypatch) -> None:
+    from app.api import sources as sources_module
+
+    class FakeLimiter:
+        def enforce(self, **_: object) -> None:
+            return None
+
+    async def fake_fetch_feed_bundle(_: str) -> dict[str, object]:
+        return {
+            "metadata": {
+                "rss_url": "https://example.com/spam.xml",
+                "site_url": "https://spam.example.com",
+                "title": "Crypto Pump Daily",
+                "description": "desc",
+                "favicon_url": None,
+                "feed_format": "rss2",
+            },
+            "entries": [
+                {"guid": "1", "title": "Entry 1", "feed_url": "https://example.com/1", "published_at": datetime.now(UTC)},
+                {"guid": "2", "title": "Entry 2", "feed_url": "https://example.com/2", "published_at": datetime.now(UTC)},
+            ],
+        }
+
+    monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
+    monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
+
+    response = client.post("/v1/sources", json={"rss_url": "https://example.com/spam.xml", "tags": []})
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"]["code"] == "source_validation_failed"
+    assert payload["error"]["message"] == "This source title matches blocked spam keywords."
+
+    with SessionLocal() as db:
+        source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/spam.xml"))
+
+    assert source is None
 
 
 def test_autofill_source_endpoint_returns_heuristic_metadata(monkeypatch) -> None:
@@ -1273,10 +1337,8 @@ def test_create_source_can_be_hidden_after_review(monkeypatch) -> None:
     assert payload["status_reason"] == "missing_published_dates"
 
 
-def test_create_source_persists_ai_review_fields(monkeypatch) -> None:
+def test_create_source_keeps_missing_published_dates_without_ai_review(monkeypatch) -> None:
     from app.api import sources as sources_module
-    from app.services.ai_review import SourceReviewResult
-    from app.services.review import ReviewDecision
 
     class FakeLimiter:
         def enforce(self, **_: object) -> None:
@@ -1293,24 +1355,15 @@ def test_create_source_persists_ai_review_fields(monkeypatch) -> None:
                 "feed_format": "rss2",
             },
             "entries": [
-                {"guid": "1", "title": "2024 annual letter", "feed_url": "https://example.com/1", "published_at": datetime.now(UTC)},
-                {"guid": "2", "title": "2023 annual letter", "feed_url": "https://example.com/2", "published_at": datetime.now(UTC)},
+                {"guid": "1", "title": "2024 annual letter", "feed_url": "https://example.com/1", "published_at": None},
+                {"guid": "2", "title": "2023 annual letter", "feed_url": "https://example.com/2", "published_at": None},
+                {"guid": "3", "title": "2022 annual letter", "feed_url": "https://example.com/3", "published_at": None},
+                {"guid": "4", "title": "2021 annual letter", "feed_url": "https://example.com/4", "published_at": datetime.now(UTC)},
             ],
         }
 
-    async def fake_review_source_bundle_with_ai(**_: object) -> SourceReviewResult:
-        return SourceReviewResult(
-            initial_decision=ReviewDecision(status="hidden", reason="stale_feed"),
-            final_decision=ReviewDecision(status="active", reason="ai_override"),
-            review_source="ai",
-            ai_review_reason="Legitimate low-frequency publication with coherent entries.",
-            ai_review_confidence="high",
-            ai_review_decision="active",
-        )
-
     monkeypatch.setattr(sources_module, "registration_rate_limiter", FakeLimiter())
     monkeypatch.setattr(sources_module, "fetch_feed_bundle", fake_fetch_feed_bundle)
-    monkeypatch.setattr(sources_module, "review_source_bundle_with_ai", fake_review_source_bundle_with_ai)
 
     response = client.post(
         "/v1/sources",
@@ -1319,23 +1372,23 @@ def test_create_source_persists_ai_review_fields(monkeypatch) -> None:
 
     assert response.status_code == 201
     payload = response.json()
-    assert payload["status"] == "active"
-    assert payload["status_reason"] == "ai_override"
-    assert payload["ai_review_source"] == "create"
-    assert payload["ai_review_reason"] == "Legitimate low-frequency publication with coherent entries."
-    assert payload["ai_review_confidence"] == "high"
-    assert payload["ai_review_decision"] == "active"
-    assert payload["ai_reviewed_at"] is not None
+    assert payload["status"] == "hidden"
+    assert payload["status_reason"] == "missing_published_dates"
+    assert payload["ai_review_source"] is None
+    assert payload["ai_review_reason"] is None
+    assert payload["ai_review_confidence"] is None
+    assert payload["ai_review_decision"] is None
+    assert payload["ai_reviewed_at"] is None
 
     with SessionLocal() as db:
         source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/annual.xml"))
 
     assert source is not None
-    assert source.ai_review_source == "create"
-    assert source.ai_review_reason == "Legitimate low-frequency publication with coherent entries."
-    assert source.ai_review_confidence == "high"
-    assert source.ai_review_decision == "active"
-    assert source.ai_reviewed_at is not None
+    assert source.ai_review_source is None
+    assert source.ai_review_reason is None
+    assert source.ai_review_confidence is None
+    assert source.ai_review_decision is None
+    assert source.ai_reviewed_at is None
 
 
 def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
@@ -1366,10 +1419,15 @@ def test_create_source_can_be_rejected_after_review(monkeypatch) -> None:
         json={"rss_url": "https://example.com/rejected.xml", "tags": []},
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 400
     payload = response.json()
-    assert payload["status"] == "rejected"
-    assert payload["status_reason"] == "no_feed_entries"
+    assert payload["error"]["code"] == "source_validation_failed"
+    assert payload["error"]["message"] == "This RSS feed has no entries."
+
+    with SessionLocal() as db:
+        source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/rejected.xml"))
+
+    assert source is None
 
 
 def test_create_source_can_be_rejected_for_duplicate_site_url(monkeypatch) -> None:
@@ -1451,10 +1509,15 @@ def test_create_source_can_be_hidden_for_repetitive_titles(monkeypatch) -> None:
 
     response = client.post("/v1/sources", json={"rss_url": "https://example.com/repetitive.xml", "tags": []})
 
-    assert response.status_code == 201
+    assert response.status_code == 400
     payload = response.json()
-    assert payload["status"] == "hidden"
-    assert payload["status_reason"] == "repetitive_entry_titles"
+    assert payload["error"]["code"] == "source_validation_failed"
+    assert payload["error"]["message"] == "This RSS feed has too many duplicate entry titles."
+
+    with SessionLocal() as db:
+        source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/repetitive.xml"))
+
+    assert source is None
 
 
 def test_create_source_can_be_hidden_for_missing_published_dates(monkeypatch) -> None:
@@ -1523,10 +1586,15 @@ def test_create_source_can_be_hidden_for_stale_feed(monkeypatch) -> None:
 
     response = client.post("/v1/sources", json={"rss_url": "https://example.com/stale.xml", "tags": []})
 
-    assert response.status_code == 201
+    assert response.status_code == 400
     payload = response.json()
-    assert payload["status"] == "hidden"
-    assert payload["status_reason"] == "stale_feed"
+    assert payload["error"]["code"] == "source_validation_failed"
+    assert payload["error"]["message"] == "This RSS feed has not been updated in over 365 days."
+
+    with SessionLocal() as db:
+        source = db.scalar(select(Source).where(Source.rss_url == "https://example.com/stale.xml"))
+
+    assert source is None
 
 
 def test_create_source_persists_only_recent_entries(monkeypatch) -> None:

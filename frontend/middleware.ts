@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
 
   if (pathname === "/admin/login") {
     if (adminState === "verified") {
-      return NextResponse.redirect(new URL("/admin/queues", request.url));
+      return NextResponse.redirect(new URL("/admin/sources", request.url));
     }
     if (adminState === "pending") {
       return NextResponse.redirect(new URL("/admin/setup-otp", request.url));
@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
 
   if (pathname === "/admin/setup-otp") {
     if (adminState === "verified") {
-      return NextResponse.redirect(new URL("/admin/queues", request.url));
+      return NextResponse.redirect(new URL("/admin/sources", request.url));
     }
     if (adminState !== "pending") {
       return NextResponse.redirect(new URL("/admin/login", request.url));

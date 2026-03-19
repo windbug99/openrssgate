@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
             </h2>
           </div>
           <p className="text-[16px] leading-[1.9] text-muted-foreground">
-            Work through moderation queues, inspect AI review signals, and keep the public source index clean without leaving the browser.
+            Review sources, update moderation status, and keep the public source index clean without leaving the browser.
           </p>
         </section>
         <AdminLoginForm />

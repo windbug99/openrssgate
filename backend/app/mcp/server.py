@@ -618,11 +618,29 @@ async def _validate_source(db: Session, arguments: dict[str, Any]) -> dict[str, 
         ]
         categories = list(dict.fromkeys(detected_categories))
 
-    review_result = await sources_api.review_source_bundle_with_ai(
+    initial_decision = sources_api.review_source_bundle(
         metadata=metadata,
         entries=bundle["entries"],
         duplicate_site_url_exists=False,
     )
+    if sources_api.is_blocking_registration_reason(initial_decision.reason):
+        return {
+            "valid": False,
+            "rss_url": normalized_rss_url,
+            "site_url": str(metadata.get("site_url") or ""),
+            "title": str(metadata.get("title") or ""),
+            "description": metadata.get("description"),
+            "favicon_url": metadata.get("favicon_url"),
+            "language": language,
+            "type": source_type,
+            "categories": categories,
+            "tags": sources_api._detect_tags(metadata, payload.tags),
+            "feed_format": str(metadata.get("feed_format") or "") or None,
+            "status": initial_decision.status,
+            "status_reason": initial_decision.reason,
+            "review_source": "rule",
+            "message": sources_api.build_review_message(initial_decision),
+        }
     return {
         "valid": True,
         "rss_url": normalized_rss_url,
@@ -635,13 +653,10 @@ async def _validate_source(db: Session, arguments: dict[str, Any]) -> dict[str, 
         "categories": categories,
         "tags": sources_api._detect_tags(metadata, payload.tags),
         "feed_format": str(metadata.get("feed_format") or "") or None,
-        "status": review_result.final_decision.status,
-        "status_reason": review_result.final_decision.reason,
-        "review_source": review_result.review_source,
-        "ai_review_reason": review_result.ai_review_reason,
-        "ai_review_confidence": review_result.ai_review_confidence,
-        "ai_review_decision": review_result.ai_review_decision,
-        "message": sources_api.build_validate_message(review_result),
+        "status": initial_decision.status,
+        "status_reason": initial_decision.reason,
+        "review_source": "rule",
+        "message": sources_api.build_review_message(initial_decision),
     }
 
 
@@ -693,6 +708,19 @@ async def _create_source(db: Session, arguments: dict[str, Any]) -> dict[str, An
 
     metadata = bundle["metadata"]
     normalized_rss_url, site_url = sources_api._ensure_source_not_registered(db, metadata, str(payload.rss_url))
+    initial_decision = sources_api.review_source_bundle(
+        metadata=metadata,
+        entries=bundle["entries"],
+        duplicate_site_url_exists=False,
+    )
+    if sources_api.is_blocking_registration_reason(initial_decision.reason):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "source_validation_failed",
+                "message": sources_api.build_review_message(initial_decision),
+            },
+        )
 
     source = Source(
         rss_url=normalized_rss_url,
@@ -723,24 +751,18 @@ async def _create_source(db: Session, arguments: dict[str, Any]) -> dict[str, An
         ]
         source.categories = sources_api.join_csv(list(dict.fromkeys(detected_categories)))
 
-    review_result = await sources_api.review_source_bundle_with_ai(
-        metadata=metadata,
-        entries=bundle["entries"],
-        duplicate_site_url_exists=False,
-    )
-    source.status = review_result.final_decision.status
-    source.status_reason = review_result.final_decision.reason
-    if review_result.review_source in {"ai", "rule_fallback"}:
-        source.ai_reviewed_at = datetime.now(timezone.utc)
-        source.ai_review_source = "create"
-        source.ai_review_reason = review_result.ai_review_reason
-        source.ai_review_confidence = review_result.ai_review_confidence
-        source.ai_review_decision = review_result.ai_review_decision or review_result.final_decision.status
+    source.status = initial_decision.status
+    source.status_reason = initial_decision.reason
+    source.ai_reviewed_at = None
+    source.ai_review_source = None
+    source.ai_review_reason = None
+    source.ai_review_confidence = None
+    source.ai_review_decision = None
 
     db.add(source)
     db.flush()
 
-    if review_result.final_decision.status == "active":
+    if initial_decision.status == "active":
         sources_api.ingest_source_bundle(
             db=db,
             source=source,

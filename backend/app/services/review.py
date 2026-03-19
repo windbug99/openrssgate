@@ -17,6 +17,13 @@ SPAM_KEYWORDS = {
 STALE_FEED_DAYS = 365
 MAX_MISSING_PUBLISHED_RATIO = 0.7
 MAX_DUPLICATE_TITLE_RATIO = 0.6
+BLOCKING_REGISTRATION_REASONS = {
+    "no_feed_entries",
+    "too_few_entries",
+    "repetitive_entry_titles",
+    "stale_feed",
+    "spam_like_title",
+}
 
 
 @dataclass(frozen=True)
@@ -72,3 +79,20 @@ def review_source_bundle(
             return ReviewDecision(status="hidden", reason="stale_feed")
 
     return ReviewDecision(status="active", reason="auto_approved")
+
+
+def is_blocking_registration_reason(reason: str) -> bool:
+    return reason in BLOCKING_REGISTRATION_REASONS
+
+
+def build_review_message(decision: ReviewDecision) -> str:
+    reason_messages = {
+        "spam_like_title": "This source title matches blocked spam keywords.",
+        "no_feed_entries": "This RSS feed has no entries.",
+        "too_few_entries": "This RSS feed has fewer than 2 entries.",
+        "repetitive_entry_titles": "This RSS feed has too many duplicate entry titles.",
+        "missing_published_dates": "This RSS feed is missing published dates on many entries.",
+        "stale_feed": "This RSS feed has not been updated in over 365 days.",
+        "auto_approved": "This RSS feed passed validation.",
+    }
+    return reason_messages.get(decision.reason, "This RSS feed did not pass validation.")

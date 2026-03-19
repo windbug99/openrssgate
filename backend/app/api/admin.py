@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_session
 from app.core.config import get_settings
-from app.db.models import AdminAuditLog, AdminSession, AdminUser, Source
+from app.db.models import AdminAuditLog, AdminSession, AdminUser, Source, SourceRegistrationAttempt
 from app.schemas.admin import (
     AdminAuditLogListResponse,
     AdminAuditLogResponse,
@@ -16,6 +16,8 @@ from app.schemas.admin import (
     AdminRecoveryCodesResponse,
     AdminSessionResponse,
     AdminSourceListResponse,
+    AdminSourceRegistrationAttemptListResponse,
+    AdminSourceRegistrationAttemptResponse,
     AdminSourceResponse,
     AdminSourceStatusUpdateRequest,
     AdminSourceUpdateRequest,
@@ -101,6 +103,19 @@ def _serialize_audit_log(entry: AdminAuditLog) -> AdminAuditLogResponse:
         reason=entry.reason,
         from_status=entry.from_status,
         to_status=entry.to_status,
+        created_at=entry.created_at,
+    )
+
+
+def _serialize_registration_attempt(entry: SourceRegistrationAttempt) -> AdminSourceRegistrationAttemptResponse:
+    return AdminSourceRegistrationAttemptResponse(
+        id=entry.id,
+        source_id=entry.source_id,
+        rss_url=entry.rss_url,
+        site_url=entry.site_url,
+        title=entry.title,
+        result=entry.result,
+        result_reason=entry.result_reason,
         created_at=entry.created_at,
     )
 
@@ -340,6 +355,22 @@ def list_admin_audit_logs(
         .limit(capped_limit)
     ).all()
     return AdminAuditLogListResponse(items=[_serialize_audit_log(entry) for entry in entries])
+
+
+@router.get("/registration-attempts", response_model=AdminSourceRegistrationAttemptListResponse)
+def list_admin_registration_attempts(
+    limit: int = 20,
+    user: AdminUser = Depends(require_admin_session),
+    db: Session = Depends(get_session),
+) -> AdminSourceRegistrationAttemptListResponse:
+    _ = user
+    capped_limit = min(max(limit, 1), 100)
+    entries = db.scalars(
+        select(SourceRegistrationAttempt)
+        .order_by(SourceRegistrationAttempt.created_at.desc())
+        .limit(capped_limit)
+    ).all()
+    return AdminSourceRegistrationAttemptListResponse(items=[_serialize_registration_attempt(entry) for entry in entries])
 
 
 @router.post("/sources/{source_id}/status", response_model=AdminSourceResponse)

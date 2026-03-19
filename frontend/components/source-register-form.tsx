@@ -188,6 +188,14 @@ export function SourceRegisterForm({
         categories: form.categories,
         tags: form.tags,
       });
+      if (!result.valid) {
+        setValidatedSource(null);
+        setAutofillResult(null);
+        setValidateActionState("error");
+        setAutofillActionState("idle");
+        setValidationError(result.message);
+        return;
+      }
       setValidatedSource(result);
       setAutofillResult(null);
       setValidateActionState("success");
@@ -270,6 +278,10 @@ export function SourceRegisterForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isEditMode && !validatedSource) {
+      setError("Validate the RSS URL before registering.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -467,7 +479,7 @@ export function SourceRegisterForm({
         </div>
 
         <div className="mt-12 flex flex-wrap gap-3">
-          <Button type="submit" disabled={saving} className="h-12 rounded-none px-6">
+          <Button type="submit" disabled={saving || (!isEditMode && !validatedSource)} className="h-12 rounded-none px-6">
             {saving ? (isEditMode ? "Saving..." : "Registering...") : isEditMode ? "Save source" : "Register Source"}
           </Button>
           {isEditMode && onDelete ? (

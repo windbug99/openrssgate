@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
 from app.core.config import get_settings
-from app.db.models import Feed, Source
+from app.db.models import Feed, Source, SourceRegistrationAttempt
 from app.schemas.source import (
     SourceAutofillResponse,
     SourceCreate,
@@ -30,11 +30,15 @@ from app.source_metadata import (
     join_csv,
     parse_csv,
 )
-from app.services.ai_review import build_validate_message, review_source_bundle_with_ai
 from app.services.cache import response_cache
 from app.services.ingest import ingest_source_bundle
 from app.services.rate_limit import RateLimitExceededError, registration_rate_limiter
-from app.services.review import _normalize_site_host
+from app.services.review import (
+    _normalize_site_host,
+    build_review_message,
+    is_blocking_registration_reason,
+    review_source_bundle,
+)
 from app.services.rss import InvalidRSSUrlError, fetch_feed_bundle
 from app.services.source_autofill import autofill_source_metadata, detect_tags_from_text
 
@@ -127,6 +131,26 @@ def _detect_tags(metadata: dict[str, object], payload_tags: list[str]) -> list[s
     return detect_tags_from_text(text)
 
 
+def _record_source_registration_attempt(
+    db: Session,
+    *,
+    rss_url: str,
+    site_url: str | None = None,
+    title: str | None = None,
+    source_id: str | None = None,
+    result: str,
+    result_reason: str | None = None,
+) -> None:
+    db.add(
+        SourceRegistrationAttempt(
+            source_id=source_id,
+            rss_url=rss_url,
+            site_url=site_url,
+            title=title,
+            result=result,
+            result_reason=result_reason,
+        )
+    )
 def _ensure_source_not_registered(db: Session, metadata: dict[str, object], fallback_rss_url: str) -> tuple[str, str]:
     normalized_rss_url = str(metadata.get("rss_url") or fallback_rss_url)
     if _source_exists_for_rss_url(db, normalized_rss_url):
@@ -236,16 +260,34 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         ]
         categories = list(dict.fromkeys(detected_categories))
 
-    review_result = await review_source_bundle_with_ai(
+    initial_decision = review_source_bundle(
         metadata=metadata,
         entries=bundle["entries"],
         duplicate_site_url_exists=False,
     )
+    if is_blocking_registration_reason(initial_decision.reason):
+        return SourceValidateResponse(
+            valid=False,
+            rss_url=normalized_rss_url,
+            site_url=site_url,
+            title=str(metadata.get("title") or ""),
+            description=metadata.get("description"),
+            favicon_url=metadata.get("favicon_url"),
+            language=language,
+            type=source_type,
+            categories=categories,
+            tags=_detect_tags(metadata, payload.tags),
+            feed_format=str(metadata.get("feed_format") or "") or None,
+            status=initial_decision.status,
+            status_reason=initial_decision.reason,
+            review_source="rule",
+            message=build_review_message(initial_decision),
+        )
 
     return SourceValidateResponse(
         valid=True,
         rss_url=normalized_rss_url,
-        site_url=str(metadata.get("site_url") or ""),
+        site_url=site_url,
         title=str(metadata.get("title") or ""),
         description=metadata.get("description"),
         favicon_url=metadata.get("favicon_url"),
@@ -254,13 +296,10 @@ async def validate_source(payload: SourceCreate, db: Session = Depends(get_sessi
         categories=categories,
         tags=_detect_tags(metadata, payload.tags),
         feed_format=str(metadata.get("feed_format") or "") or None,
-        status=review_result.final_decision.status,
-        status_reason=review_result.final_decision.reason,
-        review_source=review_result.review_source,
-        ai_review_reason=review_result.ai_review_reason,
-        ai_review_confidence=review_result.ai_review_confidence,
-        ai_review_decision=review_result.ai_review_decision,
-        message=build_validate_message(review_result),
+        status=initial_decision.status,
+        status_reason=initial_decision.reason,
+        review_source="rule",
+        message=build_review_message(initial_decision),
     )
 
 
@@ -302,9 +341,10 @@ async def autofill_source(payload: SourceCreate, db: Session = Depends(get_sessi
 async def create_source(payload: SourceCreate, request: Request, db: Session = Depends(get_session)) -> SourceResponse:
     settings = get_settings()
     _validate_registration_payload(payload)
+    requested_rss_url = str(payload.rss_url)
 
     request_ip = _request_ip(request)
-    request_host = urlparse(str(payload.rss_url)).hostname or "unknown"
+    request_host = urlparse(requested_rss_url).hostname or "unknown"
     try:
         registration_rate_limiter.enforce(
             ip=request_ip,
@@ -314,25 +354,76 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
             max_same_host=settings.source_registration_max_same_host,
         )
     except RateLimitExceededError as exc:
+        _record_source_registration_attempt(
+            db,
+            rss_url=requested_rss_url,
+            result="failed",
+            result_reason="rate_limited",
+        )
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"code": "rate_limited", "message": str(exc)},
         ) from exc
 
     try:
-        bundle = await fetch_feed_bundle(str(payload.rss_url))
+        bundle = await fetch_feed_bundle(requested_rss_url)
     except InvalidRSSUrlError as exc:
+        _record_source_registration_attempt(
+            db,
+            rss_url=requested_rss_url,
+            result="failed",
+            result_reason="invalid_rss_url",
+        )
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "invalid_rss_url", "message": str(exc)},
         ) from exc
 
     metadata = bundle["metadata"]
-    normalized_rss_url, site_url = _ensure_source_not_registered(db, metadata, str(payload.rss_url))
+    title = str(metadata.get("title") or "") or None
+    site_url = str(metadata.get("site_url") or "").strip() or None
+    try:
+        normalized_rss_url, site_url = _ensure_source_not_registered(db, metadata, requested_rss_url)
+    except HTTPException:
+        _record_source_registration_attempt(
+            db,
+            rss_url=str(metadata.get("rss_url") or requested_rss_url),
+            site_url=site_url,
+            title=title,
+            result="failed",
+            result_reason="duplicate_source",
+        )
+        db.commit()
+        raise
+
+    initial_decision = review_source_bundle(
+        metadata=metadata,
+        entries=bundle["entries"],
+        duplicate_site_url_exists=False,
+    )
+    if is_blocking_registration_reason(initial_decision.reason):
+        _record_source_registration_attempt(
+            db,
+            rss_url=normalized_rss_url,
+            site_url=site_url,
+            title=title,
+            result="failed",
+            result_reason=initial_decision.reason,
+        )
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "source_validation_failed",
+                "message": build_review_message(initial_decision),
+            },
+        )
 
     source = Source(
         rss_url=normalized_rss_url,
-        site_url=metadata["site_url"] or "",
+        site_url=site_url,
         title=metadata["title"] or "",
         description=metadata["description"],
         favicon_url=metadata["favicon_url"],
@@ -350,32 +441,38 @@ async def create_source(payload: SourceCreate, request: Request, db: Session = D
         db.commit()
     except IntegrityError as exc:
         db.rollback()
+        _record_source_registration_attempt(
+            db,
+            rss_url=normalized_rss_url,
+            site_url=site_url,
+            title=title,
+            result="failed",
+            result_reason="duplicate_source",
+        )
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "duplicate_source", "message": "This RSS URL is already registered."},
         ) from exc
 
-    review_result = await review_source_bundle_with_ai(
-        metadata=metadata,
-        entries=bundle["entries"],
-        duplicate_site_url_exists=False,
+    source.status = initial_decision.status
+    source.status_reason = initial_decision.reason
+    source.ai_reviewed_at = None
+    source.ai_review_source = None
+    source.ai_review_reason = None
+    source.ai_review_confidence = None
+    source.ai_review_decision = None
+    _record_source_registration_attempt(
+        db,
+        rss_url=normalized_rss_url,
+        site_url=site_url,
+        title=source.title,
+        source_id=source.id,
+        result="success",
+        result_reason=None,
     )
-    source.status = review_result.final_decision.status
-    source.status_reason = review_result.final_decision.reason
-    if review_result.review_source in {"ai", "rule_fallback"}:
-        source.ai_reviewed_at = datetime.now(UTC)
-        source.ai_review_source = "create"
-        source.ai_review_reason = review_result.ai_review_reason
-        source.ai_review_confidence = review_result.ai_review_confidence
-        source.ai_review_decision = review_result.ai_review_decision or review_result.final_decision.status
-    else:
-        source.ai_reviewed_at = None
-        source.ai_review_source = None
-        source.ai_review_reason = None
-        source.ai_review_confidence = None
-        source.ai_review_decision = None
 
-    if review_result.final_decision.status == "active":
+    if initial_decision.status == "active":
         ingest_source_bundle(
             db=db,
             source=source,

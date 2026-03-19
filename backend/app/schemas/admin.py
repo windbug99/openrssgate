@@ -156,3 +156,18 @@ class AdminAuditLogResponse(BaseModel):
 
 class AdminAuditLogListResponse(BaseModel):
     items: list[AdminAuditLogResponse]
+
+
+class AdminSourceRegistrationAttemptResponse(BaseModel):
+    id: str
+    source_id: str | None
+    rss_url: str
+    site_url: str | None
+    title: str | None
+    result: str
+    result_reason: str | None
+    created_at: datetime
+
+
+class AdminSourceRegistrationAttemptListResponse(BaseModel):
+    items: list[AdminSourceRegistrationAttemptResponse]

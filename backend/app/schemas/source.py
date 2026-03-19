@@ -120,9 +120,6 @@ class SourceValidateResponse(BaseModel):
     status: str
     status_reason: str | None
     review_source: str
-    ai_review_reason: str | None = None
-    ai_review_confidence: str | None = None
-    ai_review_decision: str | None = None
     message: str
 
 
