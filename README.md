@@ -34,7 +34,7 @@ It is a shared source-and-feed metadata layer that other products, scripts, agen
 - Public website: [`https://openrssgate.vercel.app/`](https://openrssgate.vercel.app/)
 - Browse indexed sources
 - Register new RSS sources
-- Check public stats and recent activity
+- Check public stats
 
 ### REST API
 
@@ -105,6 +105,13 @@ org list --keyword ai
 2. Start the collector worker in [`backend/README.md`](backend/README.md)
 3. Start the frontend in [`frontend/README.md`](frontend/README.md)
 4. Use the CLI from [`cli/README.md`](cli/README.md)
+
+If you want the CLI to target your local backend instead of the deployed API:
+
+```bash
+export OPENRSSGATE_API_BASE_URL=http://127.0.0.1:8000/v1
+org list
+```
 
 ## Architecture
 

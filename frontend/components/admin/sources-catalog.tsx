@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AdminShell } from "@/components/admin/admin-shell";
+import { AdminLoadingState } from "@/components/admin/admin-loading-state";
 import { SourceCard } from "@/components/source-card";
 import { SourceRegisterDialog } from "@/components/source-register-dialog";
 import { SourceRegisterForm } from "@/components/source-register-form";
@@ -330,13 +331,19 @@ export function AdminSourcesCatalog() {
           </div>
         </div>
 
+        {isInitialLoading && sortedItems.length > 0 ? <AdminLoadingState label="Updating sources..." compact /> : null}
+
         {sortedItems.length === 0 ? (
-          <div className="border border-dashed border-border bg-card/40 px-5 py-10 text-center text-sm text-muted-foreground">
-            {isInitialLoading ? "Searching sources..." : "No sources matched the current search and filter combination."}
-          </div>
+          isInitialLoading ? (
+            <AdminLoadingState label="Searching sources..." />
+          ) : (
+            <div className="border border-dashed border-border bg-card/40 px-5 py-10 text-center text-sm text-muted-foreground">
+              No sources matched the current search and filter combination.
+            </div>
+          )
         ) : (
           <div className="space-y-4">
-            <div className="overflow-hidden border border-border/80 bg-card/20">
+            <div className={`overflow-hidden border border-border/80 bg-card/20 transition-opacity ${isInitialLoading ? "opacity-65" : "opacity-100"}`}>
               {sortedItems.map((item, index) => (
                 <SourceCard
                   key={item.id}

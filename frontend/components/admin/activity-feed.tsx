@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import type { AdminSourceRegistrationAttempt, AdminUser } from "@/lib/admin-api";
 import { getAdminMe, listAdminRegistrationAttempts } from "@/lib/admin-api";
+import { AdminLoadingState } from "@/components/admin/admin-loading-state";
 import { AdminShell } from "@/components/admin/admin-shell";
 
 function getResultLabel(entry: AdminSourceRegistrationAttempt): string {
@@ -26,6 +27,7 @@ export function AdminActivityFeed() {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [attempts, setAttempts] = useState<AdminSourceRegistrationAttempt[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     void getAdminMe()
@@ -33,12 +35,14 @@ export function AdminActivityFeed() {
       .catch(() => router.replace("/admin/login"));
     void listAdminRegistrationAttempts(40)
       .then((payload) => setAttempts(payload.items))
-      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Failed to load source registration activity."));
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Failed to load source registration activity."))
+      .finally(() => setIsLoading(false));
   }, [router]);
 
   return (
     <AdminShell currentUser={currentUser?.email}>
       <div className="border border-border/80">
+        {isLoading ? <AdminLoadingState label="Loading activity..." className="border-0" /> : null}
         {attempts.map((entry) => (
           <article key={entry.id} className="border-b border-border/80 px-5 py-5 last:border-b-0">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -70,7 +74,7 @@ export function AdminActivityFeed() {
             </div>
           </article>
         ))}
-        {!attempts.length && !error ? <p className="px-5 py-8 text-sm text-muted-foreground">No activity has been recorded yet.</p> : null}
+        {!isLoading && !attempts.length && !error ? <p className="px-5 py-8 text-sm text-muted-foreground">No activity has been recorded yet.</p> : null}
       </div>
       {error ? <p className="mt-6 text-sm text-destructive">{error}</p> : null}
     </AdminShell>
