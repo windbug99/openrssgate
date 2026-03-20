@@ -61,6 +61,19 @@ def _to_feed_detail_response(feed: Feed, source: Source) -> FeedDetailResponse:
         ),
     )
 
+def _to_feed_response(feed: Feed, include_content: bool) -> FeedResponse:
+    return FeedResponse(
+        id=feed.id,
+        source_id=feed.source_id,
+        guid=feed.guid,
+        title=feed.title,
+        feed_url=feed.feed_url,
+        published_at=feed.published_at,
+        author=feed.author,
+        summary=feed.summary,
+        content=feed.content if include_content else None,
+    )
+
 
 @router.get(
     "/feeds",
@@ -77,8 +90,9 @@ def list_feeds(
     tag: str | None = None,
     q: str | None = None,
     since: str | None = None,
+    content: bool = Query(default=True, description="Whether to include full content in the response"),
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=500),
     db: Session = Depends(get_session),
 ) -> FeedListResponse:
     since_dt = _parse_since(since)
@@ -114,7 +128,7 @@ def list_feeds(
     feeds = db.scalars(query).all()
 
     return FeedListResponse(
-        items=[FeedResponse.model_validate(feed) for feed in feeds],
+        items=[_to_feed_response(feed, content) for feed in feeds],
         page=page,
         limit=limit,
         total=total,
@@ -150,8 +164,9 @@ def get_feed(feed_id: str, db: Session = Depends(get_session)) -> FeedDetailResp
 )
 def list_source_feeds(
     source_id: str,
+    content: bool = Query(default=True, description="Whether to include full content in the response"),
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=500),
     db: Session = Depends(get_session),
 ) -> FeedListResponse:
     source = db.get(Source, source_id)
@@ -167,7 +182,7 @@ def list_source_feeds(
     feeds = db.scalars(query.order_by(Feed.published_at.desc()).offset((page - 1) * limit).limit(limit)).all()
 
     return FeedListResponse(
-        items=[FeedResponse.model_validate(feed) for feed in feeds],
+        items=[_to_feed_response(feed, content) for feed in feeds],
         page=page,
         limit=limit,
         total=total,

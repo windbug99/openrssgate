@@ -182,7 +182,7 @@ def list_sources(
     category: str | None = None,
     tag: str | None = None,
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=500),
     db: Session = Depends(get_session),
 ) -> SourceListResponse:
     query = select(Source).where(Source.status == "active")
