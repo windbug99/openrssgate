@@ -7,7 +7,7 @@ const UPSTREAM_API_BASE = (
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
@@ -32,17 +32,21 @@ async function proxyPublicRequest(
 
   const requestHeaders = new Headers();
   // Forward safe headers only — strip hop-by-hop and host headers
-  const forwardableHeaders = ["accept", "accept-encoding", "accept-language", "user-agent"];
+  const forwardableHeaders = ["accept", "accept-encoding", "accept-language", "user-agent", "content-type"];
   for (const name of forwardableHeaders) {
     const value = request.headers.get(name);
     if (value) requestHeaders.set(name, value);
   }
 
+  const isPost = request.method === "POST";
+  const body = isPost ? await request.clone().arrayBuffer() : undefined;
+
   let upstreamResponse: Response;
   try {
     upstreamResponse = await fetch(upstreamUrl, {
-      method: "GET",
+      method: request.method,
       headers: requestHeaders,
+      body: body,
       redirect: "follow",
       // Vercel edge: avoid caching errors for long
       next: { revalidate: 30 },
@@ -72,6 +76,13 @@ async function proxyPublicRequest(
 }
 
 export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> }
+) {
+  return proxyPublicRequest(request, context);
+}
+
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {

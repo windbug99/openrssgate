@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
 from app.db.models import Feed, Source
-from app.schemas.feed import FeedDetailResponse, FeedListResponse, FeedResponse, FeedSourceSummary
+from app.schemas.feed import FeedDetailResponse, FeedListRequest, FeedListResponse, FeedResponse, FeedSourceSummary
 from app.source_metadata import csv_contains, parse_csv
 
 router = APIRouter(tags=["feeds"])
@@ -137,6 +137,41 @@ def list_feeds(
         items=[_to_feed_response(feed, content) for feed in feeds],
         page=page,
         limit=limit,
+        total=total,
+    )
+
+
+@router.post(
+    "/feeds",
+    response_model=FeedListResponse,
+    summary="List feeds (POST)",
+    description="List feed entries with filters provided in the request body. Useful for large number of source_ids.",
+)
+def list_feeds_post(
+    request: FeedListRequest,
+    db: Session = Depends(get_session),
+) -> FeedListResponse:
+    since_dt = _parse_since(request.since)
+
+    query = select(Feed).join(Source).where(Source.status == "active")
+    count_query = select(func.count()).select_from(Feed).join(Source).where(Source.status == "active")
+
+    if request.source_ids:
+        query = query.where(Feed.source_id.in_(request.source_ids))
+        count_query = count_query.where(Feed.source_id.in_(request.source_ids))
+
+    if since_dt:
+        query = query.where(Feed.published_at >= since_dt)
+        count_query = count_query.where(Feed.published_at >= since_dt)
+
+    total = db.scalar(count_query) or 0
+    query = query.order_by(Feed.published_at.desc()).offset((request.page - 1) * request.limit).limit(request.limit)
+    feeds = db.scalars(query).all()
+
+    return FeedListResponse(
+        items=[_to_feed_response(feed, request.content) for feed in feeds],
+        page=request.page,
+        limit=request.limit,
         total=total,
     )
 

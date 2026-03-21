@@ -48,3 +48,11 @@ class FeedDetailResponse(BaseModel):
     summary: str | None
     content: str | None
     source: FeedSourceSummary
+
+
+class FeedListRequest(BaseModel):
+    since: str | None = None
+    content: bool = True
+    source_ids: list[str] | None = None
+    page: int = 1
+    limit: int = 20
