@@ -156,9 +156,14 @@ def list_feeds_post(
     query = select(Feed).join(Source).where(Source.status == "active")
     count_query = select(func.count()).select_from(Feed).join(Source).where(Source.status == "active")
 
-    if request.source_ids:
-        query = query.where(Feed.source_id.in_(request.source_ids))
-        count_query = count_query.where(Feed.source_id.in_(request.source_ids))
+    final_source_ids = set(request.source_ids or [])
+    if request.rss_urls:
+        source_id_rows = db.scalars(select(Source.id).where(Source.rss_url.in_(request.rss_urls))).all()
+        final_source_ids.update(source_id_rows)
+
+    if final_source_ids:
+        query = query.where(Feed.source_id.in_(list(final_source_ids)))
+        count_query = count_query.where(Feed.source_id.in_(list(final_source_ids)))
 
     if since_dt:
         query = query.where(Feed.published_at >= since_dt)

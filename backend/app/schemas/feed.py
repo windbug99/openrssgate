@@ -54,5 +54,6 @@ class FeedListRequest(BaseModel):
     since: str | None = None
     content: bool = True
     source_ids: list[str] | None = None
+    rss_urls: list[str] | None = None
     page: int = 1
     limit: int = 20
