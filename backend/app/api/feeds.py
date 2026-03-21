@@ -84,6 +84,7 @@ def _to_feed_response(feed: Feed, include_content: bool) -> FeedResponse:
 )
 def list_feeds(
     source_id: str | None = None,
+    source_ids: str | None = Query(default=None, description="Comma-separated list of source IDs to filter by"),
     language: str | None = None,
     type: str | None = None,
     category: str | None = None,
@@ -103,6 +104,11 @@ def list_feeds(
     if source_id:
         query = query.where(Feed.source_id == source_id)
         count_query = count_query.where(Feed.source_id == source_id)
+    if source_ids:
+        ids = [i.strip() for i in source_ids.split(",") if i.strip()]
+        if ids:
+            query = query.where(Feed.source_id.in_(ids))
+            count_query = count_query.where(Feed.source_id.in_(ids))
     if language:
         query = query.where(Source.language == language)
         count_query = count_query.where(Source.language == language)
