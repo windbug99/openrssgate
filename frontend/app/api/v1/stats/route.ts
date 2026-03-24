@@ -23,8 +23,9 @@ export async function GET() {
       total_feeds: 0,
       feeds_last_24h: 0,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to fetch stats:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: { message: error.message || "Internal Server Error" } }, { status: 500 });
   }
 }
+

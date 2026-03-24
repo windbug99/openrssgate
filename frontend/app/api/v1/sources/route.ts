@@ -9,64 +9,69 @@ export const dynamic = "force-dynamic";
 const parser = new Parser();
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const keyword = searchParams.get("keyword");
-  const language = searchParams.get("language");
-  const type = searchParams.get("type");
-  const category = searchParams.get("category");
-  const tag = searchParams.get("tag");
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 500);
+  try {
+    const { searchParams } = new URL(request.url);
+    const keyword = searchParams.get("keyword");
+    const language = searchParams.get("language");
+    const type = searchParams.get("type");
+    const category = searchParams.get("category");
+    const tag = searchParams.get("tag");
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 500);
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  let where = eq(sources.status, "active");
-  const conditions = [where];
+    let where = eq(sources.status, "active");
+    const conditions = [where];
 
-  if (keyword) {
-    conditions.push(ilike(sources.title, `%${keyword}%`));
+    if (keyword) {
+      conditions.push(ilike(sources.title, `%${keyword}%`));
+    }
+    if (language) {
+      conditions.push(eq(sources.language, language));
+    }
+    if (type) {
+      conditions.push(eq(sources.type, type));
+    }
+
+    if (category) {
+      conditions.push(sql`${sources.categories} ILIKE ${`%${category}%`}`);
+    }
+    if (tag) {
+      conditions.push(sql`${sources.tags} ILIKE ${`%${tag}%`}`);
+    }
+
+    const finalWhere = and(...conditions);
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(sources)
+      .where(finalWhere);
+
+    const items = await db
+      .select()
+      .from(sources)
+      .where(finalWhere)
+      .orderBy(desc(sources.last_published_at), desc(sources.registered_at))
+      .limit(limit)
+      .offset(offset);
+
+    const transformedItems = items.map((source: any) => ({
+      ...source,
+      categories: source.categories ? source.categories.split(",").map((c: string) => c.trim()) : [],
+      tags: source.tags ? source.tags.split(",").map((t: string) => t.trim()) : [],
+    }));
+
+    return NextResponse.json({
+      items: transformedItems,
+      page,
+      limit,
+      total: totalResult.count,
+    });
+  } catch (error: any) {
+    console.error("Failed to list sources:", error);
+    return NextResponse.json({ error: { message: error.message || "Internal Server Error" } }, { status: 500 });
   }
-  if (language) {
-    conditions.push(eq(sources.language, language));
-  }
-  if (type) {
-    conditions.push(eq(sources.type, type));
-  }
-
-  if (category) {
-    conditions.push(sql`${sources.categories} ILIKE ${`%${category}%`}`);
-  }
-  if (tag) {
-    conditions.push(sql`${sources.tags} ILIKE ${`%${tag}%`}`);
-  }
-
-  const finalWhere = and(...conditions);
-
-  const [totalResult] = await db
-    .select({ count: count() })
-    .from(sources)
-    .where(finalWhere);
-
-  const items = await db
-    .select()
-    .from(sources)
-    .where(finalWhere)
-    .orderBy(desc(sources.last_published_at), desc(sources.registered_at))
-    .limit(limit)
-    .offset(offset);
-
-  const transformedItems = items.map((source: any) => ({
-    ...source,
-    categories: source.categories ? source.categories.split(",").map((c: string) => c.trim()) : [],
-    tags: source.tags ? source.tags.split(",").map((t: string) => t.trim()) : [],
-  }));
-
-  return NextResponse.json({
-    items: transformedItems,
-    page,
-    limit,
-    total: totalResult.count,
-  });
 }
 
 export async function POST(request: NextRequest) {
@@ -145,8 +150,8 @@ export async function POST(request: NextRequest) {
       tags: newSource.tags ? newSource.tags.split(",") : [],
     }, { status: 201 });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to create source:", error);
-    return NextResponse.json({ error: { code: "internal_error", message: String(error) } }, { status: 500 });
+    return NextResponse.json({ error: { code: "internal_error", message: error.message || String(error) } }, { status: 500 });
   }
 }
