@@ -1,10 +1,11 @@
 import { ArrowRight, Rss } from "lucide-react";
-
 import { DocsSection } from "@/components/docs-section";
 import { SiteShell } from "@/components/site-shell";
 import { SourcesSection } from "@/components/sources-section";
 import { Button } from "@/components/ui/button";
 import { getStats, listSources } from "@/lib/api";
+
+export const dynamic = "force-dynamic";
 
 function formatDateTime(value: string | null): string {
   if (!value) return "Not collected yet";

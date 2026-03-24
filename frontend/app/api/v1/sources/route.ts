@@ -4,6 +4,8 @@ import { sources, feeds } from "@/lib/db/schema";
 import { eq, and, ilike, sql, desc, count } from "drizzle-orm";
 import Parser from "rss-parser";
 
+export const dynamic = "force-dynamic";
+
 const parser = new Parser();
 
 export async function GET(request: NextRequest) {
@@ -53,10 +55,10 @@ export async function GET(request: NextRequest) {
     .limit(limit)
     .offset(offset);
 
-  const transformedItems = items.map((source) => ({
+  const transformedItems = items.map((source: any) => ({
     ...source,
-    categories: source.categories ? source.categories.split(",").map(c => c.trim()) : [],
-    tags: source.tags ? source.tags.split(",").map(t => t.trim()) : [],
+    categories: source.categories ? source.categories.split(",").map((c: string) => c.trim()) : [],
+    tags: source.tags ? source.tags.split(",").map((t: string) => t.trim()) : [],
   }));
 
   return NextResponse.json({

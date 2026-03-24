@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sources, feeds } from "@/lib/db/schema";
-import { eq, and, ilike, sql, desc, count, gte, inArray } from "drizzle-orm";
+import { eq, and, ilike, sql, desc, count } from "drizzle-orm";
 import Parser from "rss-parser";
+
+export const dynamic = "force-dynamic";
 
 const parser = new Parser();
 
