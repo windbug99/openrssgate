@@ -5,7 +5,7 @@ import sys
 import typer
 
 from openrssgate.client import ApiError
-from openrssgate.commands import feeds, list as list_command, stats, validate
+from openrssgate.commands import feeds, list as list_command, stats, validate, register
 
 app = typer.Typer(
     add_completion=False,
@@ -17,6 +17,7 @@ list_command.register(app)
 feeds.register(app)
 stats.register(app)
 validate.register(app)
+register.register_command(app)
 
 
 @app.callback()

@@ -93,7 +93,10 @@ type FeedListResponse = {
   total: number;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/v1";
+const API_BASE_URL = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1")
+  : (process.env.NEXT_PUBLIC_API_BASE_URL ?? `http://localhost:${process.env.PORT || 3000}/api/v1`);
+
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
